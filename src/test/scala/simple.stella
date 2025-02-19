@@ -1,0 +1,16 @@
+language core;
+
+extend with
+  #unit-type,
+  #references,
+  #arithmetic-operators,
+  #sequencing,
+  #natural-literals;
+
+fn exp2(n : Nat) -> Nat {
+  return 123
+}
+
+fn main(n : Nat) -> Nat {
+  return exp2(n)
+}
