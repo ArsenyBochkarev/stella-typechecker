@@ -14,11 +14,15 @@ def parse(input: String): Unit = {
   val tokens = new CommonTokenStream(lexer)
   val parser = new StellaParser(tokens)
 
-  /* implement listener and use parser */
+  val tree = parser.program()
+  val visitor = new StellaVisitor()
+  visitor.visit(tree)
 }
 
-object Main extends App {
-  parse("/home/mexanobar/programming/Edu/ITMO/2_semester/type_systems/stella-typechecker-scala/untitled/src/test/scala/simple.stella")
+@main
+def main(filePath: String): Unit = {
+//  parse("./src/test/scala/simple.stella")
+  parse(filePath)
   println("parsed!")
 }
 
