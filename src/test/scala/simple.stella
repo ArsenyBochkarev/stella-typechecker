@@ -7,10 +7,17 @@ extend with
   #sequencing,
   #natural-literals;
 
+fn exp1(n : Nat) -> Bool {
+  return Nat::iszero(n)
+}
 fn exp2(n : Nat) -> Nat {
-  return 123
+  return succ(123)
+}
+
+fn exp3(n : Nat) -> Nat {
+  return if exp1(n) then 56 else n
 }
 
 fn main(n : Nat) -> Nat {
-  return exp2(n)
+  return exp3(n)
 }

@@ -550,7 +550,7 @@ public class StellaParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_decl; }
-	 
+		
 		public DeclContext() { }
 		public void copyFrom(DeclContext ctx) {
 			super.copyFrom(ctx);
@@ -4929,7 +4929,7 @@ public class StellaParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_stellatype; }
-	 
+		
 		public StellatypeContext() { }
 		public void copyFrom(StellatypeContext ctx) {
 			super.copyFrom(ctx);
