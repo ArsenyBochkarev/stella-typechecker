@@ -1,0 +1,19 @@
+language core;
+
+extend with
+  #unit-type,
+  #references,
+  #arithmetic-operators,
+  #sequencing,
+  #natural-literals;
+
+fn exp4(ref : Nat) -> fn(Nat) -> Nat {
+  return
+    fn (n : Nat) {
+      return succ(n)
+    }
+}
+
+fn main(n : Nat) -> fn(Nat) -> Bool {
+  return n(n)
+}
