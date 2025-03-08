@@ -18,22 +18,20 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   override def visitDeclFun(ctx: StellaParser.DeclFunContext): Type = {
     val typeContext: VarContext = if TypeChecker.funcStack.nonEmpty then TypeChecker.funcStack.top else VarContext()
     val arg = ctx.paramDecls.get(0)
-    val argType: Type = TypeChecker.ctxToType(arg.paramType.getText) // FIXME: exactly one argument for now
+    val argType: Type = TypeChecker.ctxToType(arg.paramType) // FIXME: exactly one argument for now
     typeContext.addVariable(Variable(varStr = arg.name.getText, argType))
 
-    val expectedReturnType: Type = TypeChecker.ctxToType(ctx.returnType.getText)
+    val expectedReturnType: Type = TypeChecker.ctxToType(ctx.returnType)
     TypeChecker.funcStack.push(typeContext)
 
-    println(expectedReturnType.toString())
-    // TODO: add another specific method to handle situations with function return type in TypeChecker
     functionsContext.addFunction(ctx.name.getText, FunctionType(retType = expectedReturnType, argumentType = argType))
-    println(s"Typechecking function: ${ctx.name.getText}")
     val res = visitExpr(ctx.returnExpr, expectedReturnType)
     TypeChecker.funcStack.pop()
     res
   }
 
   private def visitExpr(expr: StellaParser.ExprContext, expectedType: Type): Type = {
+    println(s"expr: ${expr.getText}")
     expr match {
       // Consts
       case _: StellaParser.ConstIntContext => if (TypeChecker.validate(NatType, expectedType)) NatType else null
@@ -64,8 +62,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         val funcType = functionsContext.functionTypes(appCtx.fun.getText)
         val argType = TypeChecker.funcStack.top.varTypes(appCtx.args.get(0).getText)
-        if TypeChecker.validate(funcType.argType, argType) && TypeChecker.validate(funcType, expectedType)
-          then expectedType else null
+        if TypeChecker.validate(funcType.argType, argType) && TypeChecker.validate(funcType.returnType, expectedType)
+          then expectedType
+          else null
       // Abstraction
       case absCtx: StellaParser.AbstractionContext =>
 
@@ -74,13 +73,13 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //        Г |- \x : T_1. t : T_1 -> T_2
 
         val arg = absCtx.paramDecls.get(0)
-        val argType: Type = TypeChecker.ctxToType(arg.paramType.getText)
+        val argType: Type = TypeChecker.ctxToType(arg.paramType)
         TypeChecker.funcStack.top.addVariable(Variable(arg.name.getText, argType))
         if visitExpr(absCtx.expr(), expectedType) == null then null else
           FunctionType(expectedType, argType)
 
       case _ =>
-        println(s"in null ctx: ${expr.getText}")
+        println(s"Unsupported expression: ${expr.getText}")
         null
     }
   }

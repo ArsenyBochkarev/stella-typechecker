@@ -7,8 +7,6 @@ import scala.jdk.CollectionConverters
 import scala.util.Try
 
 def parse(input: String): Unit = {
-  println("\nevaluating expression " + input)
-
   val charstream = CharStreams.fromFileName(input)
   val lexer = new StellaLexer(charstream)
   val tokens = new CommonTokenStream(lexer)
@@ -23,6 +21,5 @@ def parse(input: String): Unit = {
 def main(filePath: String): Unit = {
 //  parse("./src/test/scala/simple.stella")
   parse(filePath)
-  println("parsed!")
 }
 
