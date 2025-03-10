@@ -1,6 +1,6 @@
 package Stella
 
-import Stella.grammar.*
+import Stella.Grammar.*
 import org.antlr.v4.runtime.*
 
 import scala.jdk.CollectionConverters
