@@ -1,0 +1,10 @@
+language core;
+extend with #records;
+
+fn iterate(natural : Nat) -> { current : Nat, next : Nat } {
+  return { current = natural, next = natural, unexpected = natural }
+}
+
+fn main(n : Nat) -> Nat {
+  return iterate(0).next
+}

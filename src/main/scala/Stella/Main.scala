@@ -19,7 +19,8 @@ def parse(input: String): Unit = {
 
 @main
 def main(filePath: String): Unit = {
-//  parse("./src/test/scala/simple.stella")
+  //  parse("./src/test/scala/simple.stella")
   parse(filePath)
+  System.exit(OutputManager.getOutput)
 }
 

@@ -4,15 +4,22 @@ import Stella.Types.{FunctionType, *}
 import Stella.Error.StellaError.*
 import Stella.Error.*
 import scala.jdk.CollectionConverters._
+import scala.util.boundary, boundary.break
 
 class StellaVisitor extends StellaParserBaseVisitor[Any] {
   val functionsContext = new FunctionsContext()
 
   override def visitProgram(ctx: StellaParser.ProgramContext): Any = {
-    ctx.decls.forEach {
-      case funDecl: StellaParser.DeclFunContext => if visitDeclFun(funDecl) == null then println("Type error\n") else println(s"Function ${funDecl.name.getText} processed\n")
-      case _ =>
-        println("Ignored non-function declaration")
+    boundary {
+      ctx.decls.forEach {
+        case funDecl: StellaParser.DeclFunContext =>
+          if visitDeclFun(funDecl) == null then
+            println("Type error\n")
+            break()
+          else println(s"Function ${funDecl.name.getText} processed\n")
+        case _ =>
+          println("Ignored non-function declaration")
+      }
     }
     ErrorManager.outputErrors()
   }
@@ -24,6 +31,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
     typeContext.addVariable(Variable(varStr = arg.name.getText, argType))
 
     val expectedReturnType: Type = TypeChecker.ctxToType(ctx.returnType)
+    if expectedReturnType == null then return null
     TypeChecker.funcStack.push(typeContext)
 
     functionsContext.addFunction(ctx.name.getText, FunctionType(retType = expectedReturnType, argumentType = argType))
@@ -33,7 +41,6 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   }
 
   private def visitExpr(expr: StellaParser.ExprContext, expectedType: Type): Type = {
-    println(expr.getText)
     expr match {
       // Consts
       case constIntCtx: StellaParser.ConstIntContext => if (TypeChecker.validate(NatType, expectedType)) NatType
@@ -66,7 +73,15 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         if visitExpr(isZeroCtx.expr(), NatType) == null then null else BoolType
       // Var
       case varCtx: StellaParser.VarContext => // expr == expectedType
-        if TypeChecker.validate(TypeChecker.funcStack.top.varTypes(varCtx.name.getText), expectedType) then expectedType else null
+        val varType: Type = TypeChecker.funcStack.top.varTypes.get(varCtx.name.getText) match {
+          case Some(v) => v
+          case _ =>
+            ErrorManager.registerError(ERROR_UNDEFINED_VARIABLE(varCtx.name.getText))
+            null
+        }
+        if varType == null then null
+        else
+          if TypeChecker.validate(varType, expectedType) then varType else null
       // If
       case ifCtx: StellaParser.IfContext => // expr == type(expr), cond == Bool, type(then) == type(else) == expectedType
         val condType = visitExpr(ifCtx.condition, BoolType)
@@ -76,7 +91,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           return null
         val thenType = visitExpr(ifCtx.thenExpr, expectedType)
         val elseType = visitExpr(ifCtx.elseExpr, expectedType)
-        if TypeChecker.validate(thenType, elseType) then expectedType
+        if TypeChecker.validate(thenType, elseType) then thenType
         else
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
             ifCtx.thenExpr.getText, thenType.toString(), elseType.toString()))
@@ -99,15 +114,22 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         if funcType == null then
           ErrorManager.registerError(ERROR_NOT_A_FUNCTION(appCtx.fun.getText, expectedType.toString()))
           return null
-        val argType = TypeChecker.funcStack.top.varTypes(appCtx.args.get(0).getText)
+        val argType = TypeChecker.funcStack.top.varTypes.get(appCtx.args.get(0).getText) match {
+          case Some(t) => t
+          case _ =>
+            visitExpr(appCtx.args.get(0), null)
+        }
         if !TypeChecker.validate(funcType.argType, argType) then
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.argType.toString(), argType.toString()))
           return null
-        if !TypeChecker.validate(funcType.returnType, expectedType) then
+        if TypeChecker.validate(funcType.returnType, expectedType) then
+          funcType.returnType
+        else
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.returnType.toString(), expectedType.toString()))
-          null else expectedType
+          null
+
       // Abstraction
       case absCtx: StellaParser.AbstractionContext =>
 
@@ -153,7 +175,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(ascCtx.expr().getText, innerType.toString(), expectedType.toString()))
           null else
             val ctxType = TypeChecker.ctxToType(ascCtx.type_)
-            if TypeChecker.validate(ctxType, expectedType) then expectedType
+            if TypeChecker.validate(ctxType, expectedType) then ctxType
             else
               ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(ascCtx.expr().getText, ctxType.toString(), expectedType.toString()))
               null
@@ -205,9 +227,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 ERROR_TUPLE_INDEX_OUT_OF_BOUNDS(dotTupleCtx.expr().getText, tupleType.elementsTypes.size, index))
               null
             else
-              if TypeChecker.validate(tupleType.elementsTypes(index), expectedType) then
-                expectedType
-              else null
+              val elemTy = tupleType.elementsTypes(index)
+              if TypeChecker.validate(elemTy, expectedType) then elemTy
+              else
+                null
           case _ =>
             ErrorManager.registerError(ERROR_NOT_A_TUPLE(dotTupleCtx.expr().getText))
             null
@@ -221,22 +244,55 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         val labels = recordCtx.bindings.asScala.toList.map(bind => { bind.name.getText })
         val types = recordCtx.bindings.asScala.toList.map(bind => { visitExpr(bind.rhs, null) })
+        val recTy = RecordType(labels zip types)
+
+        if labels.toSet.size != labels.size then
+          val duplicates = labels.diff(labels.toSet.toList)
+          for (dup <- duplicates)
+            ErrorManager.registerError(ERROR_DUPLICATE_RECORD_FIELDS(dup, recTy.toString))
+          return null
+
         expectedType match {
           case recordType: RecordType =>
-            if types.contains(null) || labels.size != types.size then return null
-            if TypeChecker.validate(RecordType(labels zip types), expectedType) then
-              RecordType(labels zip types)
+            if types.contains(null) then return null
+            if TypeChecker.validate(recTy, expectedType) then
+              recTy
             else null
           case null =>
-            if types.contains(null) || labels.size != types.size then return null
-            RecordType(labels zip types)
+            if types.contains(null) then return null
+            recTy
           case _ =>
-//            val actualType = visitExpr(recordCtx., null)
-//            ErrorManager.registerError(ERROR_UNEXPECTED_RECORD(
-//              recordCtx.expr.getText, actualType.toString(), expectedType.toString()))
+            ErrorManager.registerError(ERROR_UNEXPECTED_RECORD(expectedType.toString(), recTy.toString()))
             null
         }
+      case dotRecordCtx: StellaParser.DotRecordContext =>
 
+      //    Г |- t : {l_1 : T_1, ...,  l_n : T_n}
+      // ------------------------------------------ T-Proj
+      //    Г |- t.l_j : T_j
+
+        val exprType = visitExpr(dotRecordCtx.expr(), null)
+        exprType match {
+          case recordType: RecordType =>
+            val label = dotRecordCtx.label.getText
+            // Check if it is from exprType
+            recordType.labelsMap.find((l, t) => l == label) match {
+              case Some(v) =>
+                if TypeChecker.validate(v._2, expectedType) then v._2
+                else
+                  ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
+                    label, v._2.toString, expectedType.toString))
+                  null
+              case _ =>
+                ErrorManager.registerError(ERROR_UNEXPECTED_FIELD_ACCESS(label, recordType.toString))
+                null
+            }
+          case null => null
+          case _ =>
+            ErrorManager.registerError(
+              ERROR_NOT_A_RECORD(dotRecordCtx.expr().getText, exprType.toString, expectedType.toString))
+            null
+        }
       case _ =>
         null
     }

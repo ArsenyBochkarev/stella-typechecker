@@ -1,9 +1,12 @@
 package Stella
 
-import scala.collection.mutable.Stack
-import Stella.Types._
-import scala.jdk.CollectionConverters._
+import Stella.Error.ErrorManager
+import Stella.Error.StellaError.ERROR_DUPLICATE_RECORD_TYPE_FIELDS
 
+import scala.collection.mutable.Stack
+import Stella.Types.*
+
+import scala.jdk.CollectionConverters.*
 import scala.collection.mutable
 
 object TypeChecker {
@@ -21,6 +24,18 @@ object TypeChecker {
         FunctionType(ctxToType(funcTypeCtx.paramTypes.get(0)), ctxToType(funcTypeCtx.returnType))
       case tupleTypeCtx: StellaParser.TypeTupleContext =>
         TupleType(tupleTypeCtx.types.asScala.toList.map(innerType => ctxToType(innerType)))
+      case recordTypeCtx: StellaParser.TypeRecordContext =>
+        val recordLabels = recordTypeCtx.fieldTypes.asScala.toList.map(field => { field.label.getText })
+        val recordTypes = recordTypeCtx.fieldTypes.asScala.toList.map(field => { ctxToType(field.type_) })
+        val res = RecordType(recordLabels zip recordTypes)
+        if recordLabels.toSet.size != recordLabels.size then
+          val duplicates = recordLabels.diff(recordLabels.toSet.toList)
+          println(duplicates.toString())
+          for (dup <- duplicates)
+            ErrorManager.registerError(ERROR_DUPLICATE_RECORD_TYPE_FIELDS(dup, res.toString))
+          null
+        else
+          res
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }
