@@ -23,23 +23,26 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Expected non-record type ${expectedType}, got: ${actualType}")
   case ERROR_UNEXPECTED_VARIANT extends StellaError()
   case ERROR_UNEXPECTED_LIST extends StellaError()
-  case ERROR_UNEXPECTED_INJECTION extends StellaError()
+  case ERROR_UNEXPECTED_INJECTION(expr: String, actualType: String) extends StellaError(
+    s"Unexpected injection for $expr of type $actualType")
   case ERROR_MISSING_RECORD_FIELDS(field: String, rec: String) extends StellaError(
     s"Missing field: \"$field\" for record $rec")
   case ERROR_UNEXPECTED_RECORD_FIELDS(field: String, rec: String) extends StellaError(
     s"Unexpected field: \"$field\" for record $rec")
   case ERROR_UNEXPECTED_FIELD_ACCESS(field: String, rec: String) extends StellaError(
-    s"Unexpectd field \"$field\" access for record $rec"
-  )
+    s"Unexpectd field \"$field\" access for record $rec")
   case ERROR_UNEXPECTED_VARIANT_LABEL extends StellaError()
   case ERROR_TUPLE_INDEX_OUT_OF_BOUNDS(expr: String, size: Int, index: Int) extends StellaError(
     s"Index for tuple ${expr} of size ${size} is out of bounds: ${index}")
   case ERROR_UNEXPECTED_TUPLE_LENGTH extends StellaError()
-  case ERROR_AMBIGUOUS_SUM_TYPE extends StellaError()
+  case ERROR_AMBIGUOUS_SUM_TYPE(expr: String) extends StellaError(
+    s"Unable to determine injection type for $expr")
   case ERROR_AMBIGUOUS_VARIANT_TYPE extends StellaError()
   case ERROR_AMBIGUOUS_LIST extends StellaError()
-  case ERROR_ILLEGAL_EMPTY_MATCHING extends StellaError()
-  case ERROR_NONEXHAUSTIVE_MATCH_PATTERNS extends StellaError()
+  case ERROR_ILLEGAL_EMPTY_MATCHING(expr: String) extends StellaError (
+    s"Match expression $expr with an empty list")
+  case ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(expr: String) extends StellaError(
+    s"Non-exhaustive pattern matching for $expr")
   case ERROR_UNEXPECTED_PATTERN_FOR_TYPE extends StellaError()
   case ERROR_DUPLICATE_RECORD_FIELDS(field: String, rec: String) extends StellaError(
     s"Duplicate record field \"$field\" in a record $rec")

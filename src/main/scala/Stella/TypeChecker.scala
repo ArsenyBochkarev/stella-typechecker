@@ -36,6 +36,11 @@ object TypeChecker {
           null
         else
           res
+      case sumTypeCtx: StellaParser.TypeSumContext =>
+        println(s"ctxToType: ${sumTypeCtx.left.getText} + ${sumTypeCtx.right.getText}")
+        val res = SumType((ctxToType(sumTypeCtx.left), ctxToType(sumTypeCtx.right)))
+        println(s"${res.typePair._1} =?= ${sumTypeCtx.left.getText}")
+        res
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

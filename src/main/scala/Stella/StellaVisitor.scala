@@ -293,6 +293,121 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ERROR_NOT_A_RECORD(dotRecordCtx.expr().getText, exprType.toString, expectedType.toString))
             null
         }
+      // Sum types
+      case inlCtx: StellaParser.InlContext =>
+
+      //        Г |- t_1 : T_1
+      // ------------------------------ T-Inl
+      //    Г |- inl t_1 as T_1 + T_2 : T_1 + T_2
+
+        expectedType match {
+          case sumType: SumType =>
+            if visitExpr(inlCtx.expr_, sumType.typePair._1) == null then null
+            else
+              sumType
+          case null =>
+              ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inlCtx.expr().getText))
+              null
+          case _ =>
+            val actualType = visitExpr(inlCtx.expr(), expectedType)
+            ErrorManager.registerError(
+              ERROR_UNEXPECTED_INJECTION(inlCtx.expr().getText, actualType.toString))
+            null
+        }
+
+      //        Г |- t_2 : T_2
+      // ------------------------------ T-inr
+      //    Г |- inr t_2 as T_1 + T_2 : T_1 + T_2
+
+      case inrCtx: StellaParser.InrContext =>
+        expectedType match {
+          case sumType: SumType =>
+            println(s"INR: check for ${inrCtx.expr_.getText} and ${sumType.typePair._2}")
+            if visitExpr(inrCtx.expr_, sumType.typePair._2) == null then null
+            else
+              sumType
+          case null =>
+            ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inrCtx.expr().getText))
+            null
+          case _ =>
+            val actualType = visitExpr(inrCtx.expr(), expectedType)
+            ErrorManager.registerError(
+              ERROR_UNEXPECTED_INJECTION(inrCtx.expr().getText, actualType.toString))
+            null
+        }
+      case caseCtx: StellaParser.MatchContext =>
+
+      //    Г |- t_1 : T_1 + T_2    Г, x : T_1 |- t_2 : C    Г, x : T_2 |- t_3 : C
+      // ---------------------------------------------------------------------------- T-Case
+      //                 Г |- case t_1 of inl x => t_2 | inr x => t_3 : C
+
+        val exprType = visitExpr(caseCtx.expr_, null)
+        exprType match {
+          case sumType: SumType =>
+            if caseCtx.cases.asScala.toList.isEmpty then
+              ErrorManager.registerError(ERROR_ILLEGAL_EMPTY_MATCHING(caseCtx.expr().getText))
+              null
+            else
+              var gotInl = false
+              var gotInr = false
+              var shouldNull = false
+              var patternTypes = List.empty[Type]
+              // Check all pattern types are same as expected type
+              for (it <- caseCtx.cases.asScala.toList)
+                val tmp = it.pattern_ match {
+                  case pat: StellaParser.PatternInlContext =>
+                    // If pattern is var, get its name and push to typeContext
+                    gotInl = true
+                    val name = pat.pattern_ match {
+                      case varPattern: StellaParser.PatternVarContext =>
+                        varPattern.name.getText
+                      case _ => null
+                    }
+                    if name == null then visitExpr(it.expr_, expectedType)
+                    else
+                      var tc = TypeChecker.funcStack.top
+                      tc.addVariable(Variable(name, sumType.typePair._1))
+                      TypeChecker.funcStack.push(tc)
+                      val res = visitExpr(it.expr_, expectedType)
+                      TypeChecker.funcStack.pop
+                      res
+                  case pat: StellaParser.PatternInrContext =>
+                    // If pattern is var, get its name and push to typeContext
+                    gotInr = true
+                    val name = pat.pattern_ match {
+                      case varPattern: StellaParser.PatternVarContext =>
+                        varPattern.name.getText
+                      case _ => null
+                    }
+                    if name == null then visitExpr(it.expr_, expectedType)
+                    else
+                      var tc = TypeChecker.funcStack.top
+                      tc.addVariable(Variable(name, sumType.typePair._2))
+                      TypeChecker.funcStack.push(tc)
+                      val res = visitExpr(it.expr_, expectedType)
+                      TypeChecker.funcStack.pop
+                      res
+                  case _ => null
+                }
+                if tmp == null then shouldNull = true
+                else
+                  patternTypes = patternTypes :+ tmp
+              if !(gotInr && gotInl) then
+                ErrorManager.registerError(ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(caseCtx.expr().getText))
+                null
+              else
+                if shouldNull then null
+                else
+                  patternTypes.find(p => p != expectedType) match {
+                    case Some(p) =>
+                      ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText, p.toString, expectedType.toString))
+                      null
+                    case _ =>
+                      patternTypes.head
+                  }
+          case _ => null
+        }
+
       case _ =>
         null
     }
