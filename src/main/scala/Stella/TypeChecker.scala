@@ -10,7 +10,7 @@ import scala.jdk.CollectionConverters.*
 import scala.collection.mutable
 
 object TypeChecker {
-  var funcStack: Stack[VarContext] = new mutable.Stack[VarContext]()
+  var funcStack: mutable.Stack[VarContext] = new mutable.Stack[VarContext]()
 
   def validate(actualType: Type, expectedType: Type): Boolean =
     if expectedType == null then true else actualType.equals(expectedType)
@@ -37,10 +37,9 @@ object TypeChecker {
         else
           res
       case sumTypeCtx: StellaParser.TypeSumContext =>
-        println(s"ctxToType: ${sumTypeCtx.left.getText} + ${sumTypeCtx.right.getText}")
-        val res = SumType((ctxToType(sumTypeCtx.left), ctxToType(sumTypeCtx.right)))
-        println(s"${res.typePair._1} =?= ${sumTypeCtx.left.getText}")
-        res
+        SumType((ctxToType(sumTypeCtx.left), ctxToType(sumTypeCtx.right)))
+      case listTypeCtx: StellaParser.TypeListContext =>
+        ListType(ctxToType(listTypeCtx.type_))
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

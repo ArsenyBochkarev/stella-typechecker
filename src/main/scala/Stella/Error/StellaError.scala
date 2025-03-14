@@ -12,7 +12,8 @@ enum StellaError(errStr: String = "Unknown error"):
   case ERROR_NOT_A_TUPLE(expr: String) extends StellaError(s"${expr} expected to be a tuple")
   case ERROR_NOT_A_RECORD(expr: String, exprType: String, expectedType: String) extends StellaError(
     s"Expected record type $expectedType for $expr, got: $exprType")
-//  case ERROR_NOT_A_LIST
+  case ERROR_NOT_A_LIST(expr: String, exprType: String, expectedType: String) extends StellaError(
+    s"Expected list type $expectedType for $expr, got: $exprType")
   case ERROR_UNEXPECTED_LAMBDA(expr: String, exprType: String, expectedType: String) extends StellaError(
   s"Expected function type ${expectedType} for expression \"${expr}\", got: ${exprType}")
   case ERROR_UNEXPECTED_TYPE_FOR_PARAMETER(expr: String, exprType: String, expectedType: String) extends StellaError(
@@ -22,7 +23,8 @@ enum StellaError(errStr: String = "Unknown error"):
   case ERROR_UNEXPECTED_RECORD(expectedType: String, actualType: String) extends StellaError(
     s"Expected non-record type ${expectedType}, got: ${actualType}")
   case ERROR_UNEXPECTED_VARIANT extends StellaError()
-  case ERROR_UNEXPECTED_LIST extends StellaError()
+  case ERROR_UNEXPECTED_LIST(expectedType: String, actualType: String) extends StellaError(
+    s"Expected non-list type $expectedType, got: $actualType")
   case ERROR_UNEXPECTED_INJECTION(expr: String, actualType: String) extends StellaError(
     s"Unexpected injection for $expr of type $actualType")
   case ERROR_MISSING_RECORD_FIELDS(field: String, rec: String) extends StellaError(
@@ -38,7 +40,8 @@ enum StellaError(errStr: String = "Unknown error"):
   case ERROR_AMBIGUOUS_SUM_TYPE(expr: String) extends StellaError(
     s"Unable to determine injection type for $expr")
   case ERROR_AMBIGUOUS_VARIANT_TYPE extends StellaError()
-  case ERROR_AMBIGUOUS_LIST extends StellaError()
+  case ERROR_AMBIGUOUS_LIST(expr: String) extends StellaError(
+    s"Unable to determine list type for $expr")
   case ERROR_ILLEGAL_EMPTY_MATCHING(expr: String) extends StellaError (
     s"Match expression $expr with an empty list")
   case ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(expr: String) extends StellaError(

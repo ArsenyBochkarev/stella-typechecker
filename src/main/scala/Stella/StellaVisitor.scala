@@ -322,7 +322,6 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       case inrCtx: StellaParser.InrContext =>
         expectedType match {
           case sumType: SumType =>
-            println(s"INR: check for ${inrCtx.expr_.getText} and ${sumType.typePair._2}")
             if visitExpr(inrCtx.expr_, sumType.typePair._2) == null then null
             else
               sumType
@@ -354,7 +353,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               var patternTypes = List.empty[Type]
               // Check all pattern types are same as expected type
               for (it <- caseCtx.cases.asScala.toList)
-                val tmp = it.pattern_ match {
+                val patternType = it.pattern_ match {
                   case pat: StellaParser.PatternInlContext =>
                     // If pattern is var, get its name and push to typeContext
                     gotInl = true
@@ -389,16 +388,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                       res
                   case _ => null
                 }
-                if tmp == null then shouldNull = true
+                if patternType == null then shouldNull = true
                 else
-                  patternTypes = patternTypes :+ tmp
+                  patternTypes = patternTypes :+ patternType
               if !(gotInr && gotInl) then
                 ErrorManager.registerError(ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(caseCtx.expr().getText))
                 null
               else
                 if shouldNull then null
                 else
-                  patternTypes.find(p => p != expectedType) match {
+                  patternTypes.find(p =>
+                    !TypeChecker.validate(p, expectedType)) match {
                     case Some(p) =>
                       ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText, p.toString, expectedType.toString))
                       null
@@ -406,6 +406,136 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                       patternTypes.head
                   }
           case _ => null
+        }
+      // Lists
+      case consCtx: StellaParser.ConsListContext =>
+
+        //   Г |- t_1 : T   Г |- t_2 : List[T]
+        // ----------------------------------------- T-Cons
+        //    Г |- cons[T] t_1 t_2 : List[T]
+
+        expectedType match {
+          case expectedListType: ListType =>
+            val headType = visitExpr(consCtx.head, null)
+            if headType == null then null else
+              if expectedType != null && !TypeChecker.validate(headType, expectedListType.listType) then
+                ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
+                  consCtx.head.toString(), headType.toString, expectedType.toString))
+                null
+              else
+                val resultType = ListType(headType)
+                val tailType = visitExpr(consCtx.tail, resultType)
+                if tailType == null then null
+                else
+                  resultType
+          case null =>
+            val headType = visitExpr(consCtx.head, null)
+
+            val resultType = ListType(headType)
+            val tailType = visitExpr(consCtx.tail, resultType)
+
+            if headType == null then
+              if tailType == null then
+                ErrorManager.registerError(ERROR_AMBIGUOUS_LIST(expr.getText))
+              null
+            else
+              if tailType == null then null
+              else
+                resultType
+          case _ =>
+            val actualType = visitExpr(consCtx, null)
+            ErrorManager.registerError(ERROR_UNEXPECTED_LIST(expectedType.toString, actualType.toString))
+            null
+        }
+      case headCtx: StellaParser.HeadContext =>
+
+        //     Г |- t : List[T]
+        // ----------------------- T-Head
+        //    Г |- head[T] t : T
+
+        val listType = visitExpr(headCtx.list, null)
+        listType match {
+          case expectedListType: ListType =>
+            if TypeChecker.validate(expectedListType.listType, expectedType) then expectedListType
+            else
+              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
+                headCtx.list.getText, expectedListType.toString, ListType(expectedType).toString
+              ))
+              null
+          case _ =>
+            ErrorManager.registerError(ERROR_NOT_A_LIST(
+              headCtx.list.getText, listType.toString, expectedType.toString))
+            null
+        }
+      case tailCtx: StellaParser.TailContext =>
+
+        //        Г |- t : List[T]
+        // ----------------------------- T-Tail
+        //    Г |- tail[T] t : List[T]
+
+        val listType = visitExpr(tailCtx.list, null)
+        listType match {
+          case tailListType: ListType =>
+            if TypeChecker.validate(tailListType, expectedType) then tailListType
+            else
+              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
+                tailCtx.list.getText, tailListType.toString, expectedType.toString))
+              null
+          case null =>
+            null
+          case _ =>
+            ErrorManager.registerError(ERROR_NOT_A_LIST(
+              tailCtx.list.getText, listType.toString, expectedType.toString))
+            null
+        }
+      case isEmptyCtx: StellaParser.IsEmptyContext =>
+
+        //        Г |- t : List[T]
+        // ----------------------------- T-IsNil
+        //    Г |- isNil[T] t : Bool
+
+        isEmptyCtx.list
+        val exprType = visitExpr(isEmptyCtx.list, null)
+        exprType match {
+          case expectedListType: ListType =>
+            BoolType
+          case null =>
+            null
+          case _ =>
+            ErrorManager.registerError(ERROR_NOT_A_LIST(
+            isEmptyCtx.list.getText, exprType.toString, expectedType.toString))
+            null
+        }
+      case listCtx: StellaParser.ListContext =>
+
+      // No rule for []-constructed list, so...
+      // Typechecking all the expressions with expectedType.listType, smth like that:
+      //     Г |- t_1 : T  ...  Г |- t_n : T
+      //  -------------------------------------
+      //      Г |- [t_1, ..., t_n] : List[T]
+
+        val exprScalaList = listCtx.exprs.asScala.toList
+        expectedType match {
+          case expectedListType: ListType =>
+            val exprTypes = exprScalaList.map( innerExpr =>
+              {visitExpr(innerExpr, expectedListType.listType)} )
+            if exprTypes.isEmpty || exprTypes.contains(null) then null
+            else
+              ListType(exprTypes.head)
+          case null =>
+            if exprScalaList.isEmpty then
+              ErrorManager.registerError(ERROR_AMBIGUOUS_LIST(listCtx.expr.getText))
+              null
+            else
+              val exprTypes = exprScalaList.map( innerExpr =>
+                {visitExpr(innerExpr, null)} )
+              if exprTypes.contains(null) then null
+              else
+                ListType(exprTypes.head)
+          case _ =>
+            val actualType = visitExpr(listCtx, null)
+            ErrorManager.registerError(ERROR_UNEXPECTED_LIST(expectedType.toString, actualType.toString))
+            null
         }
 
       case _ =>
