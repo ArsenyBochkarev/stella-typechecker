@@ -1,0 +1,10 @@
+language core;
+
+extend with #variants, #unit-type;
+
+fn main(p : Bool) -> <| value : Nat, failure : Unit |> {
+  return
+    if p
+      then <| value = 0 |>
+      else <| failure = unit |>
+}

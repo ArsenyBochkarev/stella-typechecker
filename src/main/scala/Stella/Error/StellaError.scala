@@ -22,7 +22,8 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Expected tuple type ${expectedType} for ${expr}, got: ${exprType}")
   case ERROR_UNEXPECTED_RECORD(expectedType: String, actualType: String) extends StellaError(
     s"Expected non-record type ${expectedType}, got: ${actualType}")
-  case ERROR_UNEXPECTED_VARIANT extends StellaError()
+  case ERROR_UNEXPECTED_VARIANT(expectedType: String, actualType: String) extends StellaError(
+    s"Expected non-variant type $expectedType, got: $actualType")
   case ERROR_UNEXPECTED_LIST(expectedType: String, actualType: String) extends StellaError(
     s"Expected non-list type $expectedType, got: $actualType")
   case ERROR_UNEXPECTED_INJECTION(expr: String, actualType: String) extends StellaError(
@@ -32,24 +33,28 @@ enum StellaError(errStr: String = "Unknown error"):
   case ERROR_UNEXPECTED_RECORD_FIELDS(field: String, rec: String) extends StellaError(
     s"Unexpected field: \"$field\" for record $rec")
   case ERROR_UNEXPECTED_FIELD_ACCESS(field: String, rec: String) extends StellaError(
-    s"Unexpectd field \"$field\" access for record $rec")
-  case ERROR_UNEXPECTED_VARIANT_LABEL extends StellaError()
+    s"Unexpected field \"$field\" access for record $rec")
+  case ERROR_UNEXPECTED_VARIANT_LABEL(label: String, variant: String) extends StellaError(
+    s"Unexpected label \"$label\" for variant $variant")
   case ERROR_TUPLE_INDEX_OUT_OF_BOUNDS(expr: String, size: Int, index: Int) extends StellaError(
     s"Index for tuple ${expr} of size ${size} is out of bounds: ${index}")
   case ERROR_UNEXPECTED_TUPLE_LENGTH extends StellaError()
   case ERROR_AMBIGUOUS_SUM_TYPE(expr: String) extends StellaError(
     s"Unable to determine injection type for $expr")
-  case ERROR_AMBIGUOUS_VARIANT_TYPE extends StellaError()
+  case ERROR_AMBIGUOUS_VARIANT_TYPE(expr: String) extends StellaError(
+    s"Unable to determine variant type for $expr")
   case ERROR_AMBIGUOUS_LIST(expr: String) extends StellaError(
     s"Unable to determine list type for $expr")
   case ERROR_ILLEGAL_EMPTY_MATCHING(expr: String) extends StellaError (
     s"Match expression $expr with an empty list")
   case ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(expr: String) extends StellaError(
     s"Non-exhaustive pattern matching for $expr")
-  case ERROR_UNEXPECTED_PATTERN_FOR_TYPE extends StellaError()
+  case ERROR_UNEXPECTED_PATTERN_FOR_TYPE(varType: String, pat: String) extends StellaError(
+    s"Unexpected pattern \"$pat\" for type $varType")
   case ERROR_DUPLICATE_RECORD_FIELDS(field: String, rec: String) extends StellaError(
     s"Duplicate record field \"$field\" in a record $rec")
   case ERROR_DUPLICATE_RECORD_TYPE_FIELDS(field: String, rec: String) extends StellaError(
     s"Duplicate record field \"$field\" in a record type $rec")
-  case ERROR_DUPLICATE_VARIANT_TYPE_FIELDS extends StellaError()
+  case ERROR_DUPLICATE_VARIANT_TYPE_FIELDS(field: String, variant: String) extends StellaError(
+    s"Duplicate variant field \"$field\" in a field type $variant")
 end StellaError

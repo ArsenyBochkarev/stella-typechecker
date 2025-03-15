@@ -1,7 +1,7 @@
 package Stella
 
 import Stella.Error.ErrorManager
-import Stella.Error.StellaError.ERROR_DUPLICATE_RECORD_TYPE_FIELDS
+import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLICATE_VARIANT_TYPE_FIELDS}
 
 import scala.collection.mutable.Stack
 import Stella.Types.*
@@ -30,7 +30,6 @@ object TypeChecker {
         val res = RecordType(recordLabels zip recordTypes)
         if recordLabels.toSet.size != recordLabels.size then
           val duplicates = recordLabels.diff(recordLabels.toSet.toList)
-          println(duplicates.toString())
           for (dup <- duplicates)
             ErrorManager.registerError(ERROR_DUPLICATE_RECORD_TYPE_FIELDS(dup, res.toString))
           null
@@ -40,6 +39,17 @@ object TypeChecker {
         SumType((ctxToType(sumTypeCtx.left), ctxToType(sumTypeCtx.right)))
       case listTypeCtx: StellaParser.TypeListContext =>
         ListType(ctxToType(listTypeCtx.type_))
+      case variantTypeCtx: StellaParser.TypeVariantContext =>
+        val variantLabels = variantTypeCtx.fieldTypes.asScala.toList.map(field => { field.label.getText })
+        val variantTypes = variantTypeCtx.fieldTypes.asScala.toList.map(field => { ctxToType(field.type_) })
+        val res = VariantType(variantLabels zip variantTypes)
+        if variantLabels.toSet.size != variantLabels.size then
+          val duplicates = variantLabels.diff(variantLabels.toSet.toList)
+          for (dup <- duplicates)
+            ErrorManager.registerError(ERROR_DUPLICATE_VARIANT_TYPE_FIELDS(dup, res.toString))
+          null
+        else
+          res
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }
