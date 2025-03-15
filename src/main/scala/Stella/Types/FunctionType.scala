@@ -1,6 +1,6 @@
 package Stella.Types
 
-class FunctionType(retType: Type, argumentType: Type) extends Type {
+class FunctionType(argumentType: Type, retType: Type) extends Type {
   val returnType: Type = retType
   val argType: Type = argumentType
 

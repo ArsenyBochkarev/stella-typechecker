@@ -99,9 +99,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // Application
       case appCtx: StellaParser.ApplicationContext =>
 
-        //   Г |- t_1 : T_1 -> T_2   Г |- t_2 : T_1
-        // ------------------------------------------ T-App
-        //              Г |- t_1 t_2 : T_2
+      //   Г |- t_1 : T_1 -> T_2   Г |- t_2 : T_1
+      // ------------------------------------------ T-App
+      //              Г |- t_1 t_2 : T_2
 
         val funcType: FunctionType = functionsContext.functionTypes.get(appCtx.fun.getText) match {
           case Some(foundType) => foundType
@@ -136,7 +136,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.returnType.toString(), expectedType.toString()))
           null
-
+      // Parentheses (required to do application correctly)
+      case pCtx: StellaParser.ParenthesisedExprContext =>
+        visitExpr(pCtx.expr(), expectedType)
       // Abstraction
       case absCtx: StellaParser.AbstractionContext =>
 
@@ -162,7 +164,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if visitExpr(absCtx.returnExpr, funcType.returnType) == null then null
             else
               FunctionType(argType, funcType.returnType)
-          case null => visitExpr(absCtx.returnExpr, null)
+          case null =>
+            val retType = visitExpr(absCtx.returnExpr, null)
+            if retType == null then null
+            else
+              FunctionType(argType, retType)
         }
       // Sequence
       case seqCtx: StellaParser.SequenceContext =>
@@ -172,10 +178,14 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //              Г |- t_1; t_2 : T
 
         val expr1Type = visitExpr(seqCtx.expr1, UnitType)
-        if expr1Type == null then
-          ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(seqCtx.expr1.getText, expr1Type.toString(), UnitType.toString()))
-          return null
-        visitExpr(seqCtx.expr2, expectedType)
+        expr1Type match {
+          case UnitType => visitExpr(seqCtx.expr2, expectedType)
+          case null => null
+          case _ =>
+            ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(seqCtx.expr1.getText, expr1Type.toString(), UnitType.toString()))
+            null
+        }
+
       // Type ascription
       case ascCtx: StellaParser.TypeAscContext =>
 
