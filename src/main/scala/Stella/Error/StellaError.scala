@@ -38,7 +38,8 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Unexpected label \"$label\" for variant $variant")
   case ERROR_TUPLE_INDEX_OUT_OF_BOUNDS(expr: String, size: Int, index: Int) extends StellaError(
     s"Index for tuple ${expr} of size ${size} is out of bounds: ${index}")
-  case ERROR_UNEXPECTED_TUPLE_LENGTH extends StellaError()
+  case ERROR_UNEXPECTED_TUPLE_LENGTH(tup: String, expectedNumber: Int, actualNumber: Int) extends StellaError(
+    s"Expected $expectedNumber elements in a tuple $tup, got $actualNumber")
   case ERROR_AMBIGUOUS_SUM_TYPE(expr: String) extends StellaError(
     s"Unable to determine injection type for $expr")
   case ERROR_AMBIGUOUS_VARIANT_TYPE(expr: String) extends StellaError(
