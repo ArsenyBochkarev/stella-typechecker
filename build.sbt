@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "3.3.5"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "untitled"
+    name := "stella-typechecker"
   )
 
 libraryDependencies ++= Seq(

@@ -1,10 +1,6 @@
 package Stella
 
-import Stella.Grammar.*
 import org.antlr.v4.runtime.*
-
-import scala.jdk.CollectionConverters
-import scala.util.Try
 
 def parse(input: String): Unit = {
   val charstream = CharStreams.fromFileName(input)
