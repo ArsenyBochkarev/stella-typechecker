@@ -12,17 +12,31 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   private val functionsContext = new FunctionsContext()
 
   override def visitProgram(ctx: StellaParser.ProgramContext): Any = {
+    // Search for 'main' first
+    var mainFound = false
     boundary {
       ctx.decls.forEach {
         case funDecl: StellaParser.DeclFunContext =>
-          if visitDeclFun(funDecl) == null then
-            println("Type error\n")
+          if funDecl.name.getText == "main" then
+            mainFound = true
             break()
-          else println(s"Function ${funDecl.name.getText} processed\n")
         case _ =>
-          println("Ignored non-function declaration")
       }
     }
+    if !mainFound then
+      ErrorManager.registerError(ERROR_MISSING_MAIN())
+    else
+      boundary {
+        ctx.decls.forEach {
+          case funDecl: StellaParser.DeclFunContext =>
+            if funDecl.name.getText == "main" then mainFound = true
+            if visitDeclFun(funDecl) == null then
+              break()
+            else println(s"Function ${funDecl.name.getText} processed")
+          case _ =>
+            println("Ignored non-function declaration")
+        }
+      }
     ErrorManager.outputErrors()
   }
 
@@ -220,7 +234,6 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ------------------------------------------ T-Tuple
       //   Г |- {t_1, ..., t_n} : {T_1, ..., T_n}
 
-        // TODO: check for length in #pairs extension
         expectedType match {
           case tupleType: TupleType =>
             val resType = TupleType(

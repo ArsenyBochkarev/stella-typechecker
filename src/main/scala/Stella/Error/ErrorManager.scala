@@ -13,6 +13,6 @@ object ErrorManager {
   def outputErrors(): Unit = {
     if errorQueue.nonEmpty then OutputManager.addError()
     for (e <- errorQueue)
-      System.err.println(s"Error: ${e.errorText}")
+      System.err.println(s"${e.getClass.getSimpleName}: ${e.errorText}")
   }
 }

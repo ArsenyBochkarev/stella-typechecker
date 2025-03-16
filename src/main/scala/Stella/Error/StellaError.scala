@@ -2,8 +2,8 @@ package Stella.Error
 
 enum StellaError(errStr: String = "Unknown error"):
   val errorText: String = errStr
-// TODO: Add ERROR type to error string
-  case ERROR_MISSING_MAIN extends StellaError("Main is missing")
+
+  case ERROR_MISSING_MAIN() extends StellaError("Function \"main\" is missing")
   case ERROR_UNDEFINED_VARIABLE(varName: String) extends StellaError(s"Undefined variable: ${varName}")
   case ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr: String, exprType: String, expectedType: String) extends StellaError(
     s"Expected type ${expectedType} for expression ${expr}, got: ${exprType}")

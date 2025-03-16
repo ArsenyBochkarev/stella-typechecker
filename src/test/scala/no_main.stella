@@ -1,0 +1,6 @@
+language core;
+extend with #pairs;
+
+fn non_main(n : Nat) -> Nat {
+  return succ(n)
+}
