@@ -79,14 +79,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText,
           UnitType.toString(), expectedType.toString()))
         null
+
       // Succ, Pred
       case succCtx: StellaParser.SuccContext => // expr == Nat, inner expr == Nat
         visitExpr(succCtx.expr(), NatType)
       case predCtx: StellaParser.PredContext => // expr == Nat, inner expr == Nat
         visitExpr(predCtx.expr(), NatType)
+
       // IsZero
       case isZeroCtx: StellaParser.IsZeroContext => // expr == Bool, inner expr == Nat
         if visitExpr(isZeroCtx.expr(), NatType) == null then null else BoolType
+
       // Var
       case varCtx: StellaParser.VarContext => // expr == expectedType
         val varType: Type = TypeChecker.funcStack.top.varTypes.get(varCtx.name.getText) match {
@@ -98,6 +101,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         if varType == null then null
         else
           if TypeChecker.validate(varType, expectedType) then varType else null
+
       // If
       case ifCtx: StellaParser.IfContext => // expr == type(expr), cond == Bool, type(then) == type(else) == expectedType
         val condType = visitExpr(ifCtx.condition, BoolType)
@@ -109,6 +113,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
             ifCtx.thenExpr.getText, thenType.toString(), elseType.toString()))
           null
+
       // Application
       case appCtx: StellaParser.ApplicationContext =>
 
@@ -149,9 +154,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.returnType.toString(), expectedType.toString()))
           null
+
       // Parentheses (required to do application correctly)
       case pCtx: StellaParser.ParenthesisedExprContext =>
         visitExpr(pCtx.expr(), expectedType)
+
       // Abstraction
       case absCtx: StellaParser.AbstractionContext =>
 
@@ -183,6 +190,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             else
               FunctionType(argType, retType)
         }
+
       // Sequence
       case seqCtx: StellaParser.SequenceContext =>
 
@@ -227,6 +235,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         else
           TypeChecker.funcStack.top.addVariable(Variable(letCtx.patternBinding.pat.getText, rhsType))
           visitExpr(letCtx.expr(), expectedType)
+
       // Tuples and Pairs
       case tupleCtx: StellaParser.TupleContext =>
 
@@ -270,6 +279,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_NOT_A_TUPLE(dotTupleCtx.expr().getText))
             null
         }
+
       // Records
       case recordCtx: StellaParser.RecordContext =>
 
@@ -328,6 +338,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ERROR_NOT_A_RECORD(dotRecordCtx.expr().getText, exprType.toString, expectedType.toString))
             null
         }
+
       // Sum types
       case inlCtx: StellaParser.InlContext =>
 
@@ -510,6 +521,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 }
           case _ => null
         }
+
       // Lists
       case consCtx: StellaParser.ConsListContext =>
 
@@ -640,6 +652,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_UNEXPECTED_LIST(expectedType.toString, actualType.toString))
             null
         }
+
       // Fixpoint combinator
       case fixCtx: StellaParser.FixContext =>
 
@@ -679,6 +692,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
                 fixCtx.expr.getText, exprType.toString, expectedFunctionType.toString))
               null
+
       // Variants
       case variantCtx: StellaParser.VariantContext =>
 
