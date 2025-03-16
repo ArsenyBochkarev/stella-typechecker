@@ -170,7 +170,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           case _: FunctionType =>
           case null =>
           case _ =>
-            val actualType = visitExpr(absCtx.expr(), null)
+            val actualType = visitExpr(absCtx.expr(), null) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(
               ERROR_UNEXPECTED_LAMBDA(absCtx.expr().getText, actualType.toString(), expectedType.toString()))
             return null
@@ -252,7 +255,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           case null =>
             TupleType(tupleCtx.exprs.asScala.toList.map(innerExpr => visitExpr(innerExpr, null)))
           case _ =>
-            val actualType = visitExpr(tupleCtx.expr, null)
+            val actualType = visitExpr(tupleCtx.expr, null) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(ERROR_UNEXPECTED_TUPLE(
               tupleCtx.expr.getText, actualType.toString(), expectedType.toString()))
             null
@@ -355,7 +361,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inlCtx.expr().getText))
               null
           case _ =>
-            val actualType = visitExpr(inlCtx.expr(), expectedType)
+            val actualType = visitExpr(inlCtx.expr(), expectedType) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(
               ERROR_UNEXPECTED_INJECTION(inlCtx.expr().getText, actualType.toString))
             null
@@ -375,7 +384,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inrCtx.expr().getText))
             null
           case _ =>
-            val actualType = visitExpr(inrCtx.expr(), expectedType)
+            val actualType = visitExpr(inrCtx.expr(), expectedType) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(
               ERROR_UNEXPECTED_INJECTION(inrCtx.expr().getText, actualType.toString))
             null
@@ -558,7 +570,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               else
                 resultType
           case _ =>
-            val actualType = visitExpr(consCtx, null)
+            val actualType = visitExpr(consCtx, null) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(ERROR_UNEXPECTED_LIST(expectedType.toString, actualType.toString))
             null
         }
@@ -648,7 +663,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               else
                 ListType(exprTypes.head)
           case _ =>
-            val actualType = visitExpr(listCtx, null)
+            val actualType = visitExpr(listCtx, null) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(ERROR_UNEXPECTED_LIST(expectedType.toString, actualType.toString))
             null
         }
@@ -718,7 +736,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_AMBIGUOUS_VARIANT_TYPE(variantCtx.expr().getText))
             null
           case _ =>
-            val actualType = visitExpr(variantCtx.expr(), null) // TODO: Check if this (and similar) can be null?
+            val actualType = visitExpr(variantCtx.expr(), null) match {
+              case t: Any => t
+              case null => return null
+            }
             ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT(expectedType.toString, actualType.toString))
             null
         }
