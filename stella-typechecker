@@ -1,3 +1,7 @@
 #!/bin/bash
+OUTPUT_FILE="./stella-typechecker-ArsenyBochkarev-tmp.txt"
+programInput=$(</dev/stdin)
+echo "$programInput" > $OUTPUT_FILE
 
-sbt "runMain Stella.main $*"
+sbt "runMain Stella.main ./stella-typechecker-ArsenyBochkarev-tmp.txt"
+rm $OUTPUT_FILE
