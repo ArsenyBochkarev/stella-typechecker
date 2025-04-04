@@ -828,6 +828,18 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             null
         }
 
+      case panicCtx: StellaParser.PanicContext =>
+
+      //
+      // ------------------ T-Error
+      //   Г |- error : T
+
+        if expectedType == null then
+          // TODO: ambiguous-type-as-bottom extension here
+          ErrorManager.registerError(ERROR_AMBIGUOUS_PANIC_TYPE(expr.getText))
+          null
+        else
+          expectedType
       case _ =>
         null
     }

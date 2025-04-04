@@ -65,4 +65,6 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Unexpected reference \"$expr\" for type $expectedType")
   case ERROR_NOT_A_REFERENCE(expr: String) extends StellaError(
     s"Expected reference type for $expr")
+  case ERROR_AMBIGUOUS_PANIC_TYPE(expr: String) extends StellaError(
+    s"Unable to determine panic type for $expr")
 end StellaError
