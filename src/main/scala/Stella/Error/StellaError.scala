@@ -67,4 +67,8 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Expected reference type for $expr")
   case ERROR_AMBIGUOUS_PANIC_TYPE(expr: String) extends StellaError(
     s"Unable to determine panic type for $expr")
+  case ERROR_EXCEPTION_TYPE_NOT_DECLARED() extends StellaError(
+    "Exception type is not declared")
+  case ERROR_AMBIGUOUS_THROW_TYPE(expr: String) extends StellaError(
+    s"Unable to determine exception type for $expr")
 end StellaError

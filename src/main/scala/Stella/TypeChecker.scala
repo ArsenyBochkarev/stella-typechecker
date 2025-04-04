@@ -11,6 +11,7 @@ import scala.collection.mutable
 
 object TypeChecker {
   var funcStack: mutable.Stack[VarContext] = new mutable.Stack[VarContext]()
+  var exceptionType: Type = null
 
   def validate(actualType: Type, expectedType: Type): Boolean =
     if expectedType == null then true else actualType.equals(expectedType)
