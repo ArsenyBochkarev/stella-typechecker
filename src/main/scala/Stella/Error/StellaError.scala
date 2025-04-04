@@ -58,4 +58,11 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Duplicate record field \"$field\" in a record type $rec")
   case ERROR_DUPLICATE_VARIANT_TYPE_FIELDS(field: String, variant: String) extends StellaError(
     s"Duplicate variant field \"$field\" in a field type $variant")
+
+  case ERROR_AMBIGUOUS_REFERENCE_TYPE(expr: String) extends StellaError(
+    s"Unable to determine memory type for $expr")
+  case ERROR_UNEXPECTED_MEMORY_ADDRESS(expr: String, expectedType: String) extends StellaError(
+    s"Unexpected reference \"$expr\" for type $expectedType")
+  case ERROR_NOT_A_REFERENCE(expr: String) extends StellaError(
+    s"Expected reference type for $expr")
 end StellaError
