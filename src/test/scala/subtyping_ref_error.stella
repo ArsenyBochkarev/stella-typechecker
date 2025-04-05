@@ -1,0 +1,15 @@
+language core;
+extend with #unit-type,
+            #references,
+            #let-bindings,
+            #sequencing,
+            #top-type,
+            #structural-subtyping;
+
+fn inc_ref(ref1 : &Nat) -> Nat {
+    return ref1 := succ(*ref1); *ref1
+}
+
+fn main(n : Nat) -> Bool {
+    return let ref3 = new(n) in inc_ref(ref3)
+}

@@ -71,4 +71,6 @@ enum StellaError(errStr: String = "Unknown error"):
     "Exception type is not declared")
   case ERROR_AMBIGUOUS_THROW_TYPE(expr: String) extends StellaError(
     s"Unable to determine exception type for $expr")
+  case ERROR_UNEXPECTED_SUBTYPE(expr: String, exprType: String, expectedType: String) extends StellaError(
+    s"Expected subtype of $expectedType for expression $expr, got: $exprType")
 end StellaError

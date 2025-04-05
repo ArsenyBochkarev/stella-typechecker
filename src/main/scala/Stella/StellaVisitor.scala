@@ -27,6 +27,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       ErrorManager.registerError(ERROR_MISSING_MAIN())
     else
       boundary {
+        inspectExtensions(ctx)
         ctx.decls.forEach {
           case funDecl: StellaParser.DeclFunContext =>
             if funDecl.name.getText == "main" then mainFound = true
@@ -42,6 +43,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
     ErrorManager.outputErrors()
   }
 
+  private def inspectExtensions(ctx: StellaParser.ProgramContext): Unit = {
+    ctx.extensions.asScala.foreach {
+      case extInstance: StellaParser.AnExtensionContext =>
+        extInstance.ExtensionName.getText match
+          case "#structural-subtyping" => TypeChecker.isSubtypingEnabled = true
+          case "#ambiguous-type-as-bottom" => TypeChecker.isAmbiguousTypeAsBottom = true
+          case _ =>
+      case _ =>
+    }
+  }
+
   override def visitDeclExceptionType(ctx: StellaParser.DeclExceptionTypeContext): Unit = {
     TypeChecker.exceptionType = TypeChecker.ctxToType(ctx.exceptionType)
   }
@@ -49,7 +61,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   override def visitDeclFun(ctx: StellaParser.DeclFunContext): Type = {
     val typeContext: VarContext = if TypeChecker.funcStack.nonEmpty then TypeChecker.funcStack.top else VarContext()
     val arg = ctx.paramDecls.get(0)
-    val argType: Type = TypeChecker.ctxToType(arg.paramType) // TODO: #nullary-functions extension
+    val argType: Type = TypeChecker.ctxToType(arg.paramType)
     typeContext.addVariable(Variable(varStr = arg.name.getText, argType))
 
     val expectedReturnType: Type = TypeChecker.ctxToType(ctx.returnType)
@@ -58,39 +70,51 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
     functionsContext.addFunction(ctx.name.getText, FunctionType(retType = expectedReturnType, argumentType = argType))
     val res = visitExpr(ctx.returnExpr, expectedReturnType)
-    TypeChecker.funcStack.pop()
-    res
+    if res == null then null
+    else
+      if TypeChecker.validate(ctx.returnExpr.getText, res, expectedReturnType) then
+        TypeChecker.funcStack.pop()
+        res
+      else
+        TypeChecker.funcStack.pop()
+        null
   }
 
   private def visitExpr(expr: StellaParser.ExprContext, expectedType: Type): Type = {
     expr match {
       // Consts
-      case constIntCtx: StellaParser.ConstIntContext => if (TypeChecker.validate(NatType, expectedType)) NatType
-      else
-        ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(constIntCtx.n.getText,
-          NatType.toString(), expectedType.toString()))
-        null
-      case constTrueCtx: StellaParser.ConstTrueContext => if (TypeChecker.validate(BoolType, expectedType)) BoolType
-      else
-        ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText,
-          BoolType.toString(), expectedType.toString()))
-        null
-      case _: StellaParser.ConstFalseContext => if (TypeChecker.validate(BoolType, expectedType)) BoolType
-      else
-        ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText,
-          BoolType.toString(), expectedType.toString()))
-        null
-      case exprCtx: StellaParser.ConstUnitContext => if (TypeChecker.validate(UnitType, expectedType)) UnitType
-      else
-        ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText,
-          UnitType.toString(), expectedType.toString()))
-        null
+      case constIntCtx: StellaParser.ConstIntContext =>
+        if TypeChecker.validate(constIntCtx.n.getText, NatType, expectedType) then NatType
+        else
+          null
+      case constTrueCtx: StellaParser.ConstTrueContext =>
+        if TypeChecker.validate(expr.getText, BoolType, expectedType) then BoolType
+        else
+          null
+      case _: StellaParser.ConstFalseContext =>
+        if TypeChecker.validate(expr.getText, BoolType, expectedType) then BoolType
+        else
+          null
+      case exprCtx: StellaParser.ConstUnitContext =>
+        if TypeChecker.validate(expr.getText, UnitType, expectedType) then UnitType
+        else
+          null
 
       // Succ, Pred
       case succCtx: StellaParser.SuccContext => // expr == Nat, inner expr == Nat
-        visitExpr(succCtx.expr(), NatType)
+        val resType = visitExpr(succCtx.expr(), NatType)
+        if resType == null then null
+        else
+          if !TypeChecker.validate(succCtx.expr().toString, resType, expectedType) then null
+          else
+            resType
       case predCtx: StellaParser.PredContext => // expr == Nat, inner expr == Nat
-        visitExpr(predCtx.expr(), NatType)
+        val resType = visitExpr(predCtx.expr(), NatType)
+        if resType == null then null
+        else
+          if !TypeChecker.validate(predCtx.expr().toString, resType, expectedType) then null
+          else
+            resType
 
       // IsZero
       case isZeroCtx: StellaParser.IsZeroContext => // expr == Bool, inner expr == Nat
@@ -106,10 +130,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         }
         if varType == null then null
         else
-          if TypeChecker.validate(varType, expectedType) then varType
+          if TypeChecker.validate(varCtx.getText, varType, expectedType) then varType
           else
-            ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-              varCtx.getText, varType.toString, expectedType.toString))
             null
 
       // If
@@ -118,11 +140,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         if condType == null then return null
         val thenType = visitExpr(ifCtx.thenExpr, expectedType)
         val elseType = visitExpr(ifCtx.elseExpr, expectedType)
-        if thenType == null || TypeChecker.validate(thenType, elseType) then thenType
+        if thenType == null || elseType == null || !TypeChecker.validate(ifCtx.thenExpr.getText, thenType, elseType) then null
         else
-          ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-            ifCtx.thenExpr.getText, thenType.toString(), elseType.toString()))
-          null
+          if !TypeChecker.validate(ifCtx.thenExpr.getText, thenType, expectedType) then null
+          else
+            thenType
 
       // Application
       case appCtx: StellaParser.ApplicationContext =>
@@ -154,16 +176,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           case _ =>
             visitExpr(appCtx.args.get(0), funcType.argType)
         }
-        if !TypeChecker.validate(funcType.argType, argType) then
-          ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
-            funcType.argType.toString(), argType.toString()))
-          return null
-        if TypeChecker.validate(funcType.returnType, expectedType) then
-          funcType.returnType
+        if !TypeChecker.validate(appCtx.args.get(0).getText, funcType.argType, argType) then null
         else
-          ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
-            funcType.returnType.toString(), expectedType.toString()))
-          null
+          if TypeChecker.validate(appCtx.fun.getText, funcType.returnType, expectedType) then funcType.returnType
+          else
+            null
 
       // Parentheses (required to do application correctly)
       case pCtx: StellaParser.ParenthesisedExprContext =>
@@ -196,7 +213,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           case funcType: FunctionType =>
             if visitExpr(absCtx.returnExpr, funcType.returnType) == null then null
             else
-              FunctionType(argType, funcType.returnType)
+              val resType = FunctionType(argType, funcType.returnType)
+              if !TypeChecker.validate(absCtx.getText, resType, expectedType) then null
+              else
+                resType
           case null =>
             val retType = visitExpr(absCtx.returnExpr, null)
             if retType == null then null
@@ -213,7 +233,13 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         val expr1Type = visitExpr(seqCtx.expr1, UnitType)
         expr1Type match {
-          case UnitType => visitExpr(seqCtx.expr2, expectedType)
+          case UnitType =>
+            val expr2Type = visitExpr(seqCtx.expr2, expectedType)
+            if expr2Type == null then null
+            else
+              if TypeChecker.validate(seqCtx.expr2.getText, expr2Type, expectedType) then expr2Type
+              else
+                null
           case null => null
           case _ =>
             ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(seqCtx.expr1.getText, expr1Type.toString(), UnitType.toString()))
@@ -232,10 +258,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         if innerType == null then null
         else
             val ctxType = TypeChecker.ctxToType(ascCtx.type_)
-            if TypeChecker.validate(ctxType, expectedType) then ctxType
+            if TypeChecker.validate(ascCtx.expr().getText, ctxType, expectedType) then ctxType
             else
-              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(ascCtx.expr().getText, ctxType.toString(), expectedType.toString()))
               null
+
       // Let
       case letCtx: StellaParser.LetContext =>
 
@@ -288,7 +314,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               null
             else
               val elemTy = tupleType.elementsTypes(index)
-              if TypeChecker.validate(elemTy, expectedType) then elemTy
+              if TypeChecker.validate(dotTupleCtx.expr_.getText + "." + index, elemTy, expectedType) then elemTy
               else
                 null
           case _ =>
@@ -316,9 +342,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         expectedType match {
           case recordType: RecordType =>
             if types.contains(null) then return null
-            if TypeChecker.validate(recTy, expectedType) then
-              recTy
-            else null
+            if TypeChecker.validate(recordCtx.toString, recTy, expectedType) then recTy
+            else
+              null
           case null =>
             if types.contains(null) then return null
             recTy
@@ -339,10 +365,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             // Check if it is from recordType
             recordType.labelsMap.find((l, t) => l == label) match {
               case Some(v) =>
-                if TypeChecker.validate(v._2, expectedType) then v._2
+                if TypeChecker.validate(label, v._2, expectedType) then v._2
                 else
-                  ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                    label, v._2.toString, expectedType.toString))
                   null
               case _ =>
                 ErrorManager.registerError(ERROR_UNEXPECTED_FIELD_ACCESS(label, recordType.toString))
@@ -358,15 +382,18 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // Sum types
       case inlCtx: StellaParser.InlContext =>
 
-      //        Г |- t_1 : T_1
-      // ------------------------------ T-Inl
+      //                Г |- t_1 : T_1
+      // ------------------------------------------- T-Inl
       //    Г |- inl t_1 as T_1 + T_2 : T_1 + T_2
 
         expectedType match {
           case sumType: SumType =>
-            if visitExpr(inlCtx.expr_, sumType.typePair._1) == null then null
+            val leftTy = visitExpr(inlCtx.expr_, sumType.typePair._1)
+            if leftTy == null then null
             else
-              sumType
+              if !TypeChecker.validate(inlCtx.expr_.getText, leftTy, sumType.typePair._1) then null
+              else
+                sumType
           case null =>
               ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inlCtx.expr().getText))
               null
@@ -380,16 +407,20 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             null
         }
 
-      //        Г |- t_2 : T_2
-      // ------------------------------ T-inr
+      case inrCtx: StellaParser.InrContext =>
+
+      //                Г |- t_2 : T_2
+      // ------------------------------------------- T-Inr
       //    Г |- inr t_2 as T_1 + T_2 : T_1 + T_2
 
-      case inrCtx: StellaParser.InrContext =>
         expectedType match {
           case sumType: SumType =>
-            if visitExpr(inrCtx.expr_, sumType.typePair._2) == null then null
+            val rightTy = visitExpr(inrCtx.expr_, sumType.typePair._2)
+            if rightTy == null then null
             else
-              sumType
+              if !TypeChecker.validate(inrCtx.expr_.getText, rightTy, sumType.typePair._2) then null
+              else
+                sumType
           case null =>
             ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inrCtx.expr().getText))
             null
@@ -402,6 +433,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ERROR_UNEXPECTED_INJECTION(inrCtx.expr().getText, actualType.toString))
             null
         }
+
       case caseCtx: StellaParser.MatchContext => // This used in both sum and variant types
         if caseCtx.cases.asScala.toList.isEmpty then
           ErrorManager.registerError(ERROR_ILLEGAL_EMPTY_MATCHING(caseCtx.expr().getText))
@@ -467,10 +499,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             else
               if shouldNull then null
               else
-                patternTypes.find(p =>
-                  !TypeChecker.validate(p, expectedType)) match {
+                patternTypes.find(p => !TypeChecker.validate(expr.getText, p, expectedType)) match {
                   case Some(p) =>
-                    ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText, p.toString, expectedType.toString))
                     null
                   case _ =>
                     patternTypes.head
@@ -533,10 +563,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               if shouldNull then null
               else
                 // Finally, check if all the types are the same
-                actualPatterns.find(p =>
-                  !TypeChecker.validate(p._2, expectedType)) match {
+                actualPatterns.find(p => !TypeChecker.validate(expr.getText, p._2, expectedType)) match {
                   case Some(p) =>
-                    ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText, p.toString, expectedType.toString))
                     null
                   case _ =>
                     actualPatterns.head._2
@@ -554,17 +582,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         expectedType match {
           case expectedListType: ListType =>
             val headType = visitExpr(consCtx.head, null)
-            if headType == null then null else
-              if expectedType != null && !TypeChecker.validate(headType, expectedListType.listType) then
-                ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                  consCtx.head.toString(), headType.toString, expectedType.toString))
-                null
+            if headType == null then null
+            else
+              if !TypeChecker.validate(consCtx.head.toString(), headType, expectedListType.listType) then null
               else
                 val resultType = ListType(headType)
                 val tailType = visitExpr(consCtx.tail, resultType)
                 if tailType == null then null
                 else
-                  resultType
+                  if !TypeChecker.validate(consCtx.tail.getText, tailType, resultType) then null
+                  else
+                    resultType
           case null =>
             val headType = visitExpr(consCtx.head, null)
 
@@ -579,6 +607,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               if tailType == null then null
               else
                 resultType
+          case TopType => TopType
           case _ =>
             val actualType = visitExpr(consCtx, null) match {
               case t: Any => t
@@ -596,12 +625,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         val listType = visitExpr(headCtx.list, null)
         listType match {
           case expectedListType: ListType =>
-            if TypeChecker.validate(expectedListType.listType, expectedType) then expectedListType
+            if !TypeChecker.validate(headCtx.list.getText, expectedListType.listType, expectedType) then null
             else
-              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                headCtx.list.getText, expectedListType.toString, ListType(expectedType).toString
-              ))
-              null
+              expectedListType.listType
           case _ =>
             ErrorManager.registerError(ERROR_NOT_A_LIST(
               headCtx.list.getText, listType.toString, expectedType.toString))
@@ -616,10 +642,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         val listType = visitExpr(tailCtx.list, null)
         listType match {
           case tailListType: ListType =>
-            if TypeChecker.validate(tailListType, expectedType) then tailListType
+            if TypeChecker.validate(tailCtx.list.getText, tailListType, expectedType) then tailListType
             else
-              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                tailCtx.list.getText, tailListType.toString, expectedType.toString))
               null
           case null =>
             null
@@ -714,11 +738,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           }
         if exprType == null then null
         else
-            if TypeChecker.validate(exprType, expectedFunctionType) then
-              exprType.returnType
+            if TypeChecker.validate(fixCtx.expr.getText, exprType, expectedFunctionType) then exprType.returnType
             else
-              ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                fixCtx.expr.getText, exprType.toString, expectedFunctionType.toString))
               null
 
       // Variants
@@ -739,9 +760,12 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT_LABEL(label, expectedVariantType.toString))
                 return null
             }
-            if visitExpr(variantCtx.rhs, labelType) == null then null
+            val rhsTy = visitExpr(variantCtx.rhs, labelType)
+            if rhsTy == null then null
             else
-              expectedType
+              if !TypeChecker.validate(variantCtx.rhs.getText, rhsTy, labelType) then null
+              else
+                expectedType
           case null =>
             ErrorManager.registerError(ERROR_AMBIGUOUS_VARIANT_TYPE(variantCtx.expr().getText))
             null
@@ -753,6 +777,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT(expectedType.toString, actualType.toString))
             null
         }
+
       case refCtx: StellaParser.RefContext =>
 
       //        Г |- t_1 : T_1
@@ -767,7 +792,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         val innerExprType = visitExpr(refCtx.expr_, innerExpectedType)
         if innerExprType == null then null
         else
-          if TypeChecker.validate(ReferenceType(innerExprType), expectedRefType) then ReferenceType(innerExprType)
+          if TypeChecker.validate(refCtx.getText, ReferenceType(innerExprType), expectedRefType) then ReferenceType(innerExprType)
           else
             null
 
@@ -777,10 +802,14 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ---------------------------- T-Deref
       //    Г |- !t_1 : T_1
 
-        val expectedRefType = if expectedType == null then null else ReferenceType(expectedType)
+        val expectedRefType = if expectedType == null || expectedType == TopType then expectedType
+                              else
+                                ReferenceType(expectedType)
         visitExpr(derefCtx.expr_, expectedRefType) match {
           case refType: ReferenceType =>
-            if TypeChecker.validate(refType.innerType, expectedType) then refType.innerType else null
+            if TypeChecker.validate(derefCtx.expr_.getText, refType.innerType, expectedType) then refType.innerType
+            else
+              null
           case null => null
           case _ =>
             expectedRefType match {
@@ -804,10 +833,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 val rhsType = visitExpr(assignCtx.rhs, null)
                 if rhsType == null then null
                 else
-                  if TypeChecker.validate(lhsType.innerType, rhsType) then UnitType
+                  if TypeChecker.validate(assignCtx.rhs.getText, lhsType.innerType, rhsType) then UnitType
                   else
-                    ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
-                      assignCtx.rhs.getText, rhsType.toString, lhsType.innerType.toString))
                     null
               case null => null
               case _ =>
@@ -832,7 +859,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           case null =>
             ErrorManager.registerError(ERROR_AMBIGUOUS_REFERENCE_TYPE(expr.getText))
             null
-          case _ => // FIXME: How about Top type here?
+          case TopType => TopType
+          case _ =>
             ErrorManager.registerError(ERROR_UNEXPECTED_MEMORY_ADDRESS(
               constMemCtx.toString, expectedType.toString))
             null
@@ -869,7 +897,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             val innerExceptionType = visitExpr(throwCtx.expr_, TypeChecker.exceptionType)
             if innerExceptionType == null then null
             else
-              expectedType
+              if !TypeChecker.validate(throwCtx.expr_.getText, innerExceptionType, TypeChecker.exceptionType) then null
+              else
+                expectedType
 
       case tryWithCtx: StellaParser.TryWithContext =>
 
@@ -886,7 +916,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           else
             if visitExpr(tryWithCtx.fallbackExpr, tryType) == null then null
             else
-              tryType
+              if TypeChecker.validate(tryWithCtx.tryExpr.getText, tryType, expectedType) then tryType
+              else
+                null
 
       case tryCatchCtx: StellaParser.TryCatchContext =>
 
@@ -906,7 +938,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             TypeChecker.funcStack.push(scope)
             if visitExpr(tryCatchCtx.fallbackExpr, tryType) == null then null
             else
-              tryType
+              if TypeChecker.validate(tryCatchCtx.tryExpr.getText, tryType, expectedType) then tryType
+              else
+                null
 
       case _ =>
         null

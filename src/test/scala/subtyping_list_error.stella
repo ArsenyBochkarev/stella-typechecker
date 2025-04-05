@@ -1,0 +1,7 @@
+language core;
+
+extend with #lists, #top-type, #structural-subtyping;
+
+fn main(n : Nat) -> [Bool] {
+  return [0, 0]
+}

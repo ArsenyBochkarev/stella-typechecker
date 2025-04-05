@@ -1,0 +1,11 @@
+language core;
+
+extend with #variants;
+
+fn fail(n : Nat) -> <| failure : Nat, value : Nat |> {
+	return <| failure = 0 |>
+}
+
+fn main(n : Nat) -> <| value : Nat, failure : Nat |> {
+  return fail(n)
+}

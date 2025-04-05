@@ -1,7 +1,7 @@
 package Stella
 
 import Stella.Error.ErrorManager
-import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLICATE_VARIANT_TYPE_FIELDS}
+import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLICATE_VARIANT_TYPE_FIELDS, ERROR_UNEXPECTED_SUBTYPE, ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION}
 
 import scala.collection.mutable.Stack
 import Stella.Types.*
@@ -12,9 +12,22 @@ import scala.collection.mutable
 object TypeChecker {
   var funcStack: mutable.Stack[VarContext] = new mutable.Stack[VarContext]()
   var exceptionType: Type = null
+  var isSubtypingEnabled = false
+  var isAmbiguousTypeAsBottom = false
 
-  def validate(actualType: Type, expectedType: Type): Boolean =
-    if expectedType == null then true else actualType.equals(expectedType)
+  def validate(ctx: String, actualType: Type, expectedType: Type): Boolean =
+    if expectedType == null then true
+    else
+      if actualType.equals(expectedType) then true
+      else
+        if isSubtypingEnabled then
+          if actualType.isSubtypeOf(expectedType) then true
+          else
+            ErrorManager.registerError(ERROR_UNEXPECTED_SUBTYPE(ctx, actualType.toString, expectedType.toString))
+            false
+        else
+          ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(ctx, actualType.toString, expectedType.toString))
+          false
 
   def ctxToType(ctx: StellaParser.StellatypeContext): Type =
     ctx match {
@@ -53,6 +66,11 @@ object TypeChecker {
           res
       case refTypeCtx: StellaParser.TypeRefContext =>
         ReferenceType(ctxToType(refTypeCtx.type_))
+      case botTypeCtx: StellaParser.TypeBottomContext =>
+        BotType
+      case topTypeCtx: StellaParser.TypeTopContext =>
+        TopType
+      case parensCtx: StellaParser.TypeParensContext => ctxToType(parensCtx.type_)
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

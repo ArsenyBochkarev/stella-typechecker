@@ -18,4 +18,17 @@ class TupleType(types: List[Type]) extends Type {
       case _ => false
   override def toString: String = s"{${elementsTypes.mkString(", ")}}"
   override def hashCode: Int = types.hashCode()
+
+  override def isSubtypeOf(other: Type): Boolean =
+    // No exact subtyping rule for tuples, so...
+    //        S_1 <: T_1 ... S_n <: T_n
+    // -------------------------------------- S-Tuple
+    //   {S_1, ..., S_n} <: {T_1, ..., T_n}
+
+    other match
+      case otherTuple: TupleType =>
+        elementsTypes.size == otherTuple.elementsTypes.size &&
+          elementsTypes.zip(otherTuple.elementsTypes).forall((thisTy, otherTy) => { thisTy.isSubtypeOf(otherTy) })
+      case TopType => true
+      case _ => false
 }

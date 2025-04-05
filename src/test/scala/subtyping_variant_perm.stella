@@ -1,0 +1,13 @@
+language core;
+
+extend with #variants,
+            #top-type,
+            #structural-subtyping;
+
+fn fail(n : Nat) -> <| failure : Top, value : Nat |> {
+	return <| failure = 0 |>
+}
+
+fn main(n : Nat) -> <| value : Nat, failure : Top, value2 : Bool |> {
+  return fail(n)
+}
