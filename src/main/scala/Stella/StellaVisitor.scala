@@ -300,7 +300,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       case recordCtx: StellaParser.RecordContext =>
 
       //              Г |- t_1 : T_1  ...  Г |- t_n : T_n
-      // ------------------------------------------------------------------ T-Tuple
+      // ------------------------------------------------------------------ T-Rcd
       //   Г |- {l_1 = t_1, ..., l_n = t_n} : {l_1 : T_1, ..., l_n : T_n}
 
         val labels = recordCtx.bindings.asScala.toList.map(bind => { bind.name.getText })
