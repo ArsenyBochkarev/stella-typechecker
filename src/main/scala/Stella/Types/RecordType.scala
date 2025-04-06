@@ -72,7 +72,9 @@ class RecordType(recordStructure: List[(String, Type)]) extends Type {
         // Apply S-RcdWidth first (by using otherRcd.labelsMap, cutting everything from excessive 'this')
         // Then check for S-RcdDepth (treating fields of 'this' as a permutation of otherRcd: S-RcdPerm)
         otherRcd.labelsMap.forall((otherLabel, otherTy) => {
-          labelsMap.find((thisLabel, thisTy) => thisLabel == otherLabel).get._2.isSubtypeOf(otherTy)
+          labelsMap.find((thisLabel, thisTy) => thisLabel == otherLabel) match
+            case Some(p) => p._2.isSubtypeOf(otherTy)
+            case _ => false
         })
       case TopType => true
       case _ => false

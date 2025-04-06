@@ -46,10 +46,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   private def inspectExtensions(ctx: StellaParser.ProgramContext): Unit = {
     ctx.extensions.asScala.foreach {
       case extInstance: StellaParser.AnExtensionContext =>
-        extInstance.ExtensionName.getText match
+        extInstance.extensionNames.forEach ( ext => ext.getText match
           case "#structural-subtyping" => TypeChecker.isSubtypingEnabled = true
           case "#ambiguous-type-as-bottom" => TypeChecker.isAmbiguousTypeAsBottom = true
           case _ =>
+        )
       case _ =>
     }
   }
@@ -395,6 +396,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               else
                 sumType
           case null =>
+            if TypeChecker.isAmbiguousTypeAsBottom then BotType
+            else
               ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inlCtx.expr().getText))
               null
           case _ =>
@@ -422,8 +425,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               else
                 sumType
           case null =>
-            ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inrCtx.expr().getText))
-            null
+            if TypeChecker.isAmbiguousTypeAsBottom then BotType
+            else
+              ErrorManager.registerError(ERROR_AMBIGUOUS_SUM_TYPE(inrCtx.expr().getText))
+              null
           case _ =>
             val actualType = visitExpr(inrCtx.expr(), expectedType) match {
               case t: Any => t
@@ -601,6 +606,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
             if headType == null then
               if tailType == null then
+                if TypeChecker.isAmbiguousTypeAsBottom then return BotType
                 ErrorManager.registerError(ERROR_AMBIGUOUS_LIST(expr.getText))
               null
             else
@@ -628,7 +634,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if !TypeChecker.validate(headCtx.list.getText, expectedListType.listType, expectedType) then null
             else
               expectedListType.listType
+          case null => null
+          case BotType => BotType
           case _ =>
+            if expectedType == null then return null
             ErrorManager.registerError(ERROR_NOT_A_LIST(
               headCtx.list.getText, listType.toString, expectedType.toString))
             null
@@ -645,8 +654,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if TypeChecker.validate(tailCtx.list.getText, tailListType, expectedType) then tailListType
             else
               null
-          case null =>
-            null
+          case null => null
           case _ =>
             ErrorManager.registerError(ERROR_NOT_A_LIST(
               tailCtx.list.getText, listType.toString, expectedType.toString))
@@ -688,7 +696,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ListType(exprTypes.head)
           case null =>
             if exprScalaList.isEmpty then
-              ErrorManager.registerError(ERROR_AMBIGUOUS_LIST(listCtx.expr.getText))
+              if TypeChecker.isAmbiguousTypeAsBottom then return BotType
+              ErrorManager.registerError(ERROR_AMBIGUOUS_LIST("[]"))
               null
             else
               val exprTypes = exprScalaList.map( innerExpr =>
@@ -767,6 +776,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               else
                 expectedType
           case null =>
+            if TypeChecker.isSubtypingEnabled then
+              val rhsType = visitExpr(variantCtx.rhs, null)
+              if rhsType != null then
+                return VariantType(List((variantCtx.label.toString, rhsType)))
+            if TypeChecker.isAmbiguousTypeAsBottom then return BotType
             ErrorManager.registerError(ERROR_AMBIGUOUS_VARIANT_TYPE(variantCtx.expr().getText))
             null
           case _ =>
@@ -811,6 +825,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             else
               null
           case null => null
+          // Ignoring BotType: decided to raise error (see in TG chat)
           case _ =>
             expectedRefType match {
               case t: Any =>
@@ -853,12 +868,13 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //    <n> : &T
       // As far as I understand, all we can do here is to take expectedType
 
-        // TODO: ambiguous-type-as-bottom extension here
         expectedType match {
           case refType: ReferenceType => refType
           case null =>
-            ErrorManager.registerError(ERROR_AMBIGUOUS_REFERENCE_TYPE(expr.getText))
-            null
+            if TypeChecker.isAmbiguousTypeAsBottom then BotType
+            else
+              ErrorManager.registerError(ERROR_AMBIGUOUS_REFERENCE_TYPE(expr.getText))
+              null
           case TopType => TopType
           case _ =>
             ErrorManager.registerError(ERROR_UNEXPECTED_MEMORY_ADDRESS(
@@ -873,9 +889,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //   Г |- error : T
 
         if expectedType == null then
-          // TODO: ambiguous-type-as-bottom extension here
-          ErrorManager.registerError(ERROR_AMBIGUOUS_PANIC_TYPE(expr.getText))
-          null
+          if TypeChecker.isAmbiguousTypeAsBottom then BotType
+          else
+            ErrorManager.registerError(ERROR_AMBIGUOUS_PANIC_TYPE(expr.getText))
+            null
         else
           expectedType
 
@@ -886,9 +903,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //   Г |- throw t_1 : T
 
         if expectedType == null then
-          // TODO: ambiguous-type-as-bottom extension here
-          ErrorManager.registerError(ERROR_AMBIGUOUS_THROW_TYPE(throwCtx.expr_.getText))
-          null
+          if TypeChecker.isAmbiguousTypeAsBottom then BotType
+          else
+            ErrorManager.registerError(ERROR_AMBIGUOUS_THROW_TYPE(throwCtx.expr_.getText))
+            null
         else
           if TypeChecker.exceptionType == null then
             ErrorManager.registerError(ERROR_EXCEPTION_TYPE_NOT_DECLARED())

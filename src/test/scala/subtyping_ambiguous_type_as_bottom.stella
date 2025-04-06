@@ -1,0 +1,33 @@
+language core;
+
+extend with #type-ascriptions, #references,
+            #sum-types, #unit-type, #top-type, #lists, #variants,
+            #ambiguous-type-as-bottom, #structural-subtyping;
+
+fn not_main4(n : Nat) -> Nat {
+    return (fn(x : Nat) {
+        return throw(1)
+    }) (0)
+}
+
+fn not_main3(n : Nat) -> Nat {
+  return (fn(x : Nat) {
+    	return panic!
+  }) (0)
+}
+
+fn not_main2(n : Nat) -> Top {
+	return ((fn (_ : Nat) {
+    	return <0x01>
+    }) (0))
+}
+
+fn not_main(n : Nat) -> Nat {
+    return List::head([])
+}
+
+fn main(n : Nat) -> Bool + Nat {
+    return (fn (x : Nat) {
+        return inr(x)
+    })(n)
+}

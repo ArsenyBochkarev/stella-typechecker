@@ -19,7 +19,7 @@ class VariantType(variantStructure: List[(String, Type)]) extends Type {
             ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT_LABEL(label, other.toString))
           return false
         var res = true
-        if !TypeChecker.isSubtypingEnabled && !TypeChecker.isSubtypingEnabled then
+        if !TypeChecker.isSubtypingEnabled then
           for ((currentField, otherField) <- labelsMap zip that.labelsMap)
             if currentField._1 != otherField._1 then
               res = false
@@ -68,7 +68,10 @@ class VariantType(variantStructure: List[(String, Type)]) extends Type {
         // Apply S-VariantWidth first (by using this.labelsMap, cutting everything from excessive otherVariant)
         // Then check for S-VariantDepth (treating fields of 'this' as a permutation of otherVariant: S-VariantPerm)
         labelsMap.forall((thisLabel, thisTy) => {
-          thisTy.isSubtypeOf(otherVariant.labelsMap.find((otherLabel, otherTy) => thisLabel == otherLabel).get._2)
+          thisTy.isSubtypeOf(otherVariant.labelsMap.find((otherLabel, otherTy) => thisLabel == otherLabel) match
+            case Some(p) => p._2
+            case _ => null
+          ) 
         })
       case TopType => true
       case _ => false
