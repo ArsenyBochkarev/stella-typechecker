@@ -1,6 +1,6 @@
 language core;
 
-extend with #type-ascriptions, #references,
+extend with #type-ascriptions, #references, #panic,
             #sum-types, #unit-type, #top-type, #lists, #variants,
             #ambiguous-type-as-bottom, #structural-subtyping;
 
