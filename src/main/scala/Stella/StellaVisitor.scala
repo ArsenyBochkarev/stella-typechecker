@@ -100,7 +100,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         }
         if varType == null then null
         else
-          if TypeChecker.validate(varType, expectedType) then varType else null
+          if TypeChecker.validate(varType, expectedType) then varType
+          else
+            ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
+              varCtx.getText, varType.toString, expectedType.toString))
+            null
 
       // If
       case ifCtx: StellaParser.IfContext => // expr == type(expr), cond == Bool, type(then) == type(else) == expectedType
