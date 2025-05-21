@@ -8,6 +8,6 @@ class UniversalType(t: Type, typeParams: List[Type]) extends Type {
     other match
       case that: UniversalType => innerType == that.innerType && outerTypes == that.outerTypes
       case _ => false
-  override def toString: String = s"forall $innerType. ${outerTypes.toString()}"
+  override def toString: String = s"forall ${outerTypes.mkString(", ")}. $innerType"
   override def hashCode(): Int = (innerType, outerTypes).hashCode()
 }

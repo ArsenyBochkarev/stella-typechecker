@@ -63,5 +63,6 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Expected generic function type $expectedType for $expr")
   case ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS(expr: String, expectedNumber: Int, actualNumber: Int) extends StellaError(
     s"Expected $expectedNumber arguments for type instantiation of $expr, got $actualNumber")
-  case ERROR_UNDEFINED_TYPE_VARIABLE() extends StellaError()
+  case ERROR_UNDEFINED_TYPE_VARIABLE(variable: String) extends StellaError(
+    s"Undefined type variable $variable")
 end StellaError

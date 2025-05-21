@@ -59,4 +59,42 @@ object TypeChecker {
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }
+
+  def checkUnresolvedType(t: Type, funcStack: Stack[VarContext]): Type = {
+    t match {
+      case fnTy: FunctionType =>
+        if checkUnresolvedType(fnTy.argType, funcStack) != null then fnTy
+        else
+          checkUnresolvedType(fnTy.returnType, funcStack)
+      case lstTy: ListType =>
+        checkUnresolvedType(lstTy.listType, funcStack)
+      case sumTy: SumType =>
+        if checkUnresolvedType(sumTy.typePair._1, funcStack) != null then sumTy
+        else
+          checkUnresolvedType(sumTy.typePair._2, funcStack)
+      case tupTy: TupleType =>
+        for (elem <- tupTy.elementsTypes)
+          if checkUnresolvedType(elem, funcStack) != null then return tupTy
+        null
+
+      case genericTy: GenericType =>
+        if resolveGenericType(genericTy, funcStack) != null then genericTy
+        else
+          null
+      case _ =>
+        null
+    }
+  }
+  def resolveGenericType(genericType: GenericType, funcStack: Stack[VarContext]): Type = {
+    funcStack.top.typeVars.get(genericType.name) match {
+      case Some(v) => v // Found type in current funcStack
+      case null =>
+        if funcStack.size > 1 then
+          val funcStackCopy = funcStack
+          funcStackCopy.pop()
+          resolveGenericType(genericType, funcStackCopy)
+        else
+          null
+    }
+  }
 }

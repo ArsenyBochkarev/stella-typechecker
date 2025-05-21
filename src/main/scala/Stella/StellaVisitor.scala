@@ -50,6 +50,12 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
     ctx.generics.forEach( typeVar => {
       typeContext.addTypeVariable(Variable(typeVar.getText, GenericType(typeVar.getText)))
     })
+    functionsContext.addTypeVariables(
+      ctx.name.getText,
+      ctx.generics.asScala.map( typeVar => {
+        GenericType(typeVar.getText)
+      }).toList
+    )
 
     val arg = ctx.paramDecls.get(0)
     val argType: Type = TypeChecker.ctxToType(arg.paramType)
@@ -157,7 +163,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ------------------------------------------ T-App
       //              Г |- t_1 t_2 : T_2
 
-        // TODO: UniversalType?
+        // It looks like we shouldn't match UniversalType here, because their type (if correct)
+        // will be evaluated anyway in visitExpr(appCtx.fun, null) (since we cannot do
+        // application for non-instantiated generic type)
         val funcType: FunctionType = functionsContext.functionTypes.get(appCtx.fun.getText) match {
           case Some(foundType: FunctionType) => foundType
           case _ =>
@@ -781,13 +789,23 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT(expectedType.toString, actualType.toString))
             null
         }
+
       case typeAppCtx: StellaParser.TypeApplicationContext =>
+
+      //     Г |- t : forall X. T
+      // ---------------------------- T-TApp
+      //   Г |- t [S] : [X |-> S] T
+
         visitExpr(typeAppCtx.fun, null) match {
           case univTy: UniversalType =>
             univTy.innerType match {
               case funcTy: FunctionType =>
                 // Comparing number of saved generics with actual one
-                val expectedNumber = TypeChecker.funcStack.top.typeVars.size
+                val expectedNumber =
+                  functionsContext.typeVars.get(typeAppCtx.fun.getText) match {
+                    case Some(v) => v.size
+                    case _ => 0
+                  }
                 val actualNumber = univTy.outerTypes.size
                 if expectedNumber != actualNumber then
                   ErrorManager.registerError(ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS(
@@ -799,7 +817,12 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                   val actualTypes = typeAppCtx.types.asScala.map(ty => { TypeChecker.ctxToType(ty) })
                   val subst = univTy.outerTypes.zip(actualTypes).toMap
                   val actualType = funcTy.substituteTypes(subst)
-                  // TODO: ERROR_UNDEFINED_TYPE_VARIABLE here
+                  TypeChecker.checkUnresolvedType(actualType, TypeChecker.funcStack) match {
+                    case t: Type =>
+                      ErrorManager.registerError(ERROR_UNDEFINED_TYPE_VARIABLE(t.toString))
+                      return null
+                    case null =>
+                  }
                   if TypeChecker.validate(actualType, expectedType) then
                     actualType
                   else
