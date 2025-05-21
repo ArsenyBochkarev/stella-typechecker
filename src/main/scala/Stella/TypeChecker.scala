@@ -1,7 +1,7 @@
 package Stella
 
 import Stella.Error.ErrorManager
-import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLICATE_VARIANT_TYPE_FIELDS}
+import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLICATE_VARIANT_TYPE_FIELDS, ERROR_NOT_A_FUNCTION}
 
 import scala.collection.mutable.Stack
 import Stella.Types.*
@@ -50,6 +50,12 @@ object TypeChecker {
           null
         else
           res
+      case typeVarCtx: StellaParser.TypeVarContext => GenericType(typeVarCtx.getText)
+      case typeForallCtx: StellaParser.TypeForAllContext =>
+        UniversalType(
+          ctxToType(typeForallCtx.type_),
+          typeForallCtx.types.asScala.toList.map( generic => { GenericType(generic.getText) } )
+        )
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

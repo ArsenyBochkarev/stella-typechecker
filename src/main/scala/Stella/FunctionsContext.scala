@@ -5,8 +5,8 @@ import Stella.Types.*
 import scala.collection.mutable.Map
 
 class FunctionsContext {
-  val functionTypes: Map[String, FunctionType] = Map()
-  def addFunction(funcName: String, funcType: FunctionType): Unit = {
+  val functionTypes: Map[String, Type] = Map()
+  def addFunction(funcName: String, funcType: Type): Unit = {
     functionTypes += (funcName -> funcType)
   }
 }

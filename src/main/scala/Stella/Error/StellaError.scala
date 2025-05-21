@@ -58,4 +58,10 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Duplicate record field \"$field\" in a record type $rec")
   case ERROR_DUPLICATE_VARIANT_TYPE_FIELDS(field: String, variant: String) extends StellaError(
     s"Duplicate variant field \"$field\" in a field type $variant")
+  case ERROR_OCCURS_CHECK_INFINITE_TYPE() extends StellaError()
+  case ERROR_NOT_A_GENERIC_FUNCTION(expr: String, expectedType: String) extends StellaError(
+    s"Expected generic function type $expectedType for $expr")
+  case ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS(expr: String, expectedNumber: Int, actualNumber: Int) extends StellaError(
+    s"Expected $expectedNumber arguments for type instantiation of $expr, got $actualNumber")
+  case ERROR_UNDEFINED_TYPE_VARIABLE() extends StellaError()
 end StellaError
