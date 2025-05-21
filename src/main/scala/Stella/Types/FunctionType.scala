@@ -22,7 +22,7 @@ class FunctionType(argumentType: Type, retType: Type) extends Type {
     FunctionType(from, to)
   }
 
-  // This substitutes [genericType |-> actualType] in t
+  // This substitutes [genericType |-> actualType] in t by constructing new type
   def substitute(t: Type, genericType: Type, actualType: Type): Type = {
     t match {
       case fnTy: FunctionType =>
@@ -50,8 +50,7 @@ class FunctionType(argumentType: Type, retType: Type) extends Type {
 
       case genTy: GenericType =>
         if genTy == genericType then actualType else genTy
-      case _ =>
-        this
+      case _ => t
     }
   }
 }

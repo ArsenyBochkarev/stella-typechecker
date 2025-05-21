@@ -178,7 +178,6 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 visitExpr(appCtx.fun, null) match {
                   case fTy: FunctionType => fTy
                   case _ =>
-                    println(s"\n\n not found: \'${appCtx.fun.getText}\'")
                     ErrorManager.registerError(ERROR_NOT_A_FUNCTION(appCtx.fun.getText, expectedType.toString()))
                     return null
                 }
@@ -801,20 +800,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             univTy.innerType match {
               case funcTy: FunctionType =>
                 // Comparing number of saved generics with actual one
-                val expectedNumber =
-                  functionsContext.typeVars.get(typeAppCtx.fun.getText) match {
-                    case Some(v) => v.size
-                    case _ => 0
-                  }
-                val actualNumber = univTy.outerTypes.size
-                if expectedNumber != actualNumber then
+                val expectedNumber = univTy.outerTypes.size
+                val actualTypes = typeAppCtx.types.asScala.map(ty => {
+                  TypeChecker.ctxToType(ty)
+                })
+                if expectedNumber != actualTypes.size then
                   ErrorManager.registerError(ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS(
-                    typeAppCtx.fun.getText, expectedNumber, actualNumber
+                    typeAppCtx.fun.getText, expectedNumber, actualTypes.size
                   ))
                   null
                 else
                   // Substitute actual types to univTy
-                  val actualTypes = typeAppCtx.types.asScala.map(ty => { TypeChecker.ctxToType(ty) })
                   val subst = univTy.outerTypes.zip(actualTypes).toMap
                   val actualType = funcTy.substituteTypes(subst)
                   TypeChecker.checkUnresolvedType(actualType, TypeChecker.funcStack) match {
@@ -839,8 +835,31 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             null
         }
       case typeAbsCtx: StellaParser.TypeAbstractionContext =>
-        println("\n\n Got type abstraction :shrug: \n\n")
-        null
+
+      //     Г, X |- t : T
+      // ---------------------------- T-TAbs
+      //   Г |- ΛX.t : forall X.T
+
+        expectedType match {
+          case univTy: UniversalType =>
+            val tc = TypeChecker.funcStack.top
+            typeAbsCtx.generics.forEach( typeVar => {
+              tc.addTypeVariable(Variable(typeVar.getText, GenericType(typeVar.getText)))
+            })
+            val typeParams = typeAbsCtx.generics.asScala.map( g => { GenericType(g.getText) } ).toList
+            val actualType = visitExpr(typeAbsCtx.expr_, univTy.innerType)
+            if actualType == null then null
+            else
+              UniversalType(actualType, typeParams)
+          case _ =>
+            val actualType = visitExpr(typeAbsCtx.expr_, null)
+            if actualType == null || expectedType == null then null
+            else
+              ErrorManager.registerError(
+                ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(typeAbsCtx.expr_.getText, actualType.toString, expectedType.toString)
+              )
+              null
+        }
       case _ =>
         null
     }

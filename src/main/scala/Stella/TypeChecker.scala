@@ -78,7 +78,7 @@ object TypeChecker {
         null
 
       case genericTy: GenericType =>
-        if resolveGenericType(genericTy, funcStack) != null then genericTy
+        if resolveGenericType(genericTy, funcStack) == null then genericTy
         else
           null
       case _ =>
@@ -88,7 +88,7 @@ object TypeChecker {
   def resolveGenericType(genericType: GenericType, funcStack: Stack[VarContext]): Type = {
     funcStack.top.typeVars.get(genericType.name) match {
       case Some(v) => v // Found type in current funcStack
-      case null =>
+      case _ =>
         if funcStack.size > 1 then
           val funcStackCopy = funcStack
           funcStackCopy.pop()
