@@ -5,14 +5,21 @@ import Stella.Error.StellaError.{ERROR_DUPLICATE_RECORD_TYPE_FIELDS, ERROR_DUPLI
 
 import scala.collection.mutable.Stack
 import Stella.Types.*
+import Stella.Unification.{Constraint, Solver}
+import org.antlr.v4.runtime.ParserRuleContext
 
 import scala.jdk.CollectionConverters.*
 import scala.collection.mutable
 
 object TypeChecker {
   var funcStack: mutable.Stack[VarContext] = new mutable.Stack[VarContext]()
+  var isTypeReconstructionEnabled = false
 
-  def validate(actualType: Type, expectedType: Type): Boolean =
+  def validate(actualType: Type, expectedType: Type, expression: String): Boolean =
+    if isTypeReconstructionEnabled then
+      // FIXME: what if expectedType == null?
+      Solver.addConstraint(Constraint(actualType, expectedType, expression))
+      return true
     if expectedType == null then true else actualType.equals(expectedType)
 
   def ctxToType(ctx: StellaParser.StellatypeContext): Type =
@@ -56,6 +63,7 @@ object TypeChecker {
           ctxToType(typeForallCtx.type_),
           typeForallCtx.types.asScala.toList.map( generic => { GenericType(generic.getText) } )
         )
+      case typeAutoCtx: StellaParser.TypeAutoContext => TypeVarWrapper.createTypeVar()
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

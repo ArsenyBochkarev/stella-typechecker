@@ -27,7 +27,7 @@ class RecordType(recordStructure: List[(String, Type)]) extends Type {
         // Type check for fields next
         var res = true
         for ((currentField, otherField) <- labelsMap zip that.labelsMap)
-          if !TypeChecker.validate(currentField._2, otherField._2) then
+          if !TypeChecker.validate(currentField._2, otherField._2, s"$toString == ${that.toString}") then
             ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(
               currentField._1, currentField._2.toString, otherField._2.toString))
             res = false
