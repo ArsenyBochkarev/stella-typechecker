@@ -3,6 +3,6 @@ language core;
 extend with
   #lists;
 
-fn main(n : [Nat]) -> [Bool] {
+fn main(n : [Nat]) -> [Nat] {
   return List::tail(n)
 }

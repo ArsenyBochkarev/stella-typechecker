@@ -1,0 +1,3 @@
+package Stella.Unification
+
+enum UnificationResult
