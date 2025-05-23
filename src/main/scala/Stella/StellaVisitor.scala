@@ -276,6 +276,22 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               FunctionType(argType, retType)
         }
 
+      case natRecCtx: StellaParser.NatRecContext =>
+
+      //    Г |- t_1 : Nat   Г |- t_2 : C   Г |- t_3 : Nat -> C -> C
+      // -------------------------------------------------------------- T-RecNat
+      //                   Г |- rec(t_1, t_2, t_3) : C
+
+        if visitExpr(natRecCtx.n, NatType) == null then null
+        else
+          val initialType = visitExpr(natRecCtx.initial, expectedType)
+          if initialType == null then null
+          else
+            val expectedStepFunctionType = FunctionType(NatType, FunctionType(expectedType, expectedType))
+            if visitExpr(natRecCtx.step, expectedStepFunctionType) == null then null
+            else
+              initialType
+
       // Sequence
       case seqCtx: StellaParser.SequenceContext =>
 
