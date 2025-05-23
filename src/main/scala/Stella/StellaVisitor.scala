@@ -474,6 +474,8 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ERROR_UNEXPECTED_INJECTION(inrCtx.expr().getText, actualType.toString))
             null
         }
+      case semicolonCtx: StellaParser.TerminatingSemicolonContext =>
+        visitExpr(semicolonCtx.expr_, expectedType)
       case caseCtx: StellaParser.MatchContext => // This used in both sum and variant types
         if caseCtx.cases.asScala.toList.isEmpty then
           ErrorManager.registerError(ERROR_ILLEGAL_EMPTY_MATCHING(caseCtx.expr().getText))
