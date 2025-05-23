@@ -1,8 +1,8 @@
 package Stella.Unification
 
 object Solver {
-  var constraints: List[Constraint] = List[Constraint]()
-  def addConstraint(c: Constraint) = c +: constraints
+  var constraints: Set[Constraint] = Set[Constraint]()
+  def addConstraint(c: Constraint) = constraints = constraints + c
 
   def solve(): UnificationResult = ???
 }

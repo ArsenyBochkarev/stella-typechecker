@@ -6,4 +6,6 @@ class Constraint(l: Type, r: Type, e: String) {
   val left: Type = l
   val right: Type = r
   val expr: String = e
+
+  override def toString() = s"${l.toString} = ${r.toString}"
 }
