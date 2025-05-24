@@ -52,7 +52,7 @@ object Solver {
         case l: ListType =>
           right match {
             case r: ListType =>
-              addConstraint(Constraint(l.listType, r.listType, expr))
+              addConstraint(Constraint(r.listType, l.listType, expr))
               return solve()
             case _ =>
           }
@@ -78,7 +78,7 @@ object Solver {
       right match
         case r: TypeVar =>
           if !isFV(r, left) then
-            constraints.toList.map(c => { c.replace(r, left) })
+            constraints = constraints.toList.map(c => { c.replace(r, left) })
             solve()
           else
             UNIFICATION_ERROR_FAILED(expr, left.toString, r.toString)
