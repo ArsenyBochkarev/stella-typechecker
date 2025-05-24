@@ -17,7 +17,8 @@ object TypeChecker {
 
   def validate(actualType: Type, expectedType: Type, expression: String): Boolean =
     if isTypeReconstructionEnabled then
-      // FIXME: what if expectedType == null?
+      if expectedType == null then
+        return true
       Solver.addConstraint(Constraint(actualType, expectedType, expression))
       return true
     if expectedType == null then true else actualType.equals(expectedType)

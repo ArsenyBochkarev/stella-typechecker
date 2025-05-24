@@ -9,4 +9,7 @@ class SumType(tp: (Type, Type)) extends Type {
   }
   override def toString: String = s"${typePair._1} + ${typePair._2}"
   override def hashCode: Int = typePair.hashCode()
+
+  override def replace(left: Type, right: Type): Type =
+    SumType((typePair._1.replace(left, right), typePair._2.replace(left, right)))
 }

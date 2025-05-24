@@ -187,17 +187,19 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         // It looks like we shouldn't match UniversalType here, because their type (if correct)
         // will be evaluated anyway in visitExpr(appCtx.fun, null) (since we cannot do
         // application for non-instantiated generic type)
-        val funcType: FunctionType = functionsContext.functionTypes.get(appCtx.fun.getText) match {
+        val tmpTy: Type = functionsContext.functionTypes.get(appCtx.fun.getText) match {
           case Some(foundType: FunctionType) => foundType
           case _ =>
             TypeChecker.funcStack.top.varTypes.get(appCtx.fun.getText) match {
               case Some(foundType: FunctionType) => foundType
+              case Some(foundTypeVar: TypeVar) => foundTypeVar
               case Some(otherType) => // Some other type, error
                 ErrorManager.registerError(ERROR_NOT_A_FUNCTION(appCtx.fun.getText, expectedType.toString()))
                 return null
               case _ =>
                 visitExpr(appCtx.fun, null) match {
                   case fTy: FunctionType => fTy
+                  case tyVar: TypeVar => tyVar
                   case _ =>
                     ErrorManager.registerError(ERROR_NOT_A_FUNCTION(appCtx.fun.getText, expectedType.toString()))
                     return null
@@ -217,15 +219,16 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           // ---------------------------------------------------------------------- СT-App
           //              Г |- t_1 t_2 : X | (C_1 ∪ C_2 ∪ {T_1 = T_2 -> X})
 
-          // TODO: Think about adding Constraints in some other places
-
           if argType == null then return null
           val res = if expectedType == null then TypeVarWrapper.createTypeVar() else expectedType // Optimize a bit
-          Solver.addConstraint(Constraint(funcType,
+          Solver.addConstraint(Constraint(tmpTy,
             FunctionType(argType, res),
             appCtx.getText))
           return res
 
+        val funcType: FunctionType = tmpTy match
+          case fTy: FunctionType => fTy
+          case _ => return null
         if !TypeChecker.validate(funcType.argType, argType, appCtx.getText) then
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.argType.toString(), argType.toString()))
@@ -250,10 +253,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         expectedType match {
           case _: FunctionType =>
+          case _: TypeVar =>
           case null =>
           case _ =>
             val actualType = visitExpr(absCtx.expr(), null) match {
-              case t: Any => t
+              case t: Type => t
               case null => return null
             }
             ErrorManager.registerError(
@@ -269,6 +273,15 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if visitExpr(absCtx.returnExpr, funcType.returnType) == null then null
             else
               FunctionType(argType, funcType.returnType)
+          case typeVar: TypeVar =>
+            val retType = TypeVarWrapper.createTypeVar()
+            val expectedFuncType = FunctionType(argType, retType)
+            Solver.addConstraint(Constraint(expectedType, expectedFuncType, absCtx.expr().getText))
+            val res = visitExpr(absCtx.returnExpr, retType)
+
+            if res == null then null
+            else
+              FunctionType(argType, res)
           case null =>
             val retType = visitExpr(absCtx.returnExpr, null)
             if retType == null then null

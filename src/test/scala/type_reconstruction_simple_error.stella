@@ -1,0 +1,7 @@
+// программа на Stella
+language core;
+extend with #type-reconstruction, #tuples;
+
+fn main(f : Nat) -> { Nat, auto } {
+    return { f, f(0) }
+}

@@ -8,4 +8,8 @@ class Constraint(l: Type, r: Type, e: String) {
   val expr: String = e
 
   override def toString() = s"${l.toString} = ${r.toString}"
+
+  // This does [lt |-> rt] in this constraint
+  def replace(lt: Type, rt: Type): Constraint =
+    Constraint(left.replace(lt, rt), right.replace(lt, rt), expr)
 }

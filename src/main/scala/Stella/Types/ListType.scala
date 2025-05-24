@@ -8,4 +8,7 @@ class ListType(ty: Type) extends Type {
     case that: ListType => listType == that.listType
     case _ => false
   }
+
+  override def replace(left: Type, right: Type): Type =
+    ListType(listType.replace(left, right))
 }

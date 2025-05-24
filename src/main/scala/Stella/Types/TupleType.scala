@@ -18,4 +18,7 @@ class TupleType(types: List[Type]) extends Type {
       case _ => false
   override def toString: String = s"{${elementsTypes.mkString(", ")}}"
   override def hashCode: Int = types.hashCode()
+
+  override def replace(left: Type, right: Type): Type =
+    TupleType(elementsTypes.map(elem => { elem.replace(left, right) }))
 }

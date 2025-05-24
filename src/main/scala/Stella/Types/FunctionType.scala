@@ -53,4 +53,7 @@ class FunctionType(argumentType: Type, retType: Type) extends Type {
       case _ => t
     }
   }
+
+  override def replace(left: Type, right: Type): Type =
+    FunctionType(argType.replace(left, right), returnType.replace(left, right))
 }
