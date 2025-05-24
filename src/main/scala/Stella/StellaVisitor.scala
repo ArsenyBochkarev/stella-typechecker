@@ -740,6 +740,19 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ----------------------------------------- T-Cons
       //    Г |- cons[T] t_1 t_2 : List[T]
 
+        if TypeChecker.isTypeReconstructionEnabled then
+          val elemType = TypeVarWrapper.createTypeVar()
+          val lstType = ListType(elemType)
+          val headType = visitExpr(consCtx.head, elemType)
+          if headType == null then return null
+          else
+            val tailType = visitExpr(consCtx.tail, elemType)
+            if tailType == null then return null
+            else
+              if !TypeChecker.validate(lstType, expectedType, consCtx.getText) then return null
+              else
+                return lstType
+
         expectedType match {
           case expectedListType: ListType =>
             val headType = visitExpr(consCtx.head, null)
@@ -844,6 +857,14 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       //      Г |- [t_1, ..., t_n] : List[T]
 
         val exprScalaList = listCtx.exprs.asScala.toList
+        if TypeChecker.isTypeReconstructionEnabled then
+          val elemType = TypeVarWrapper.createTypeVar()
+          if exprScalaList.map(e => { visitExpr(e, elemType) }).contains(null) then return null
+          else
+            if !TypeChecker.validate(ListType(elemType), expectedType, listCtx.toString) then return null
+            else
+              return ListType(elemType)
+
         expectedType match {
           case expectedListType: ListType =>
             val exprTypes = exprScalaList.map( innerExpr =>

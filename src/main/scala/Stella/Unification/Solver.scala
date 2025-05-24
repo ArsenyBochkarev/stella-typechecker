@@ -48,6 +48,13 @@ object Solver {
               return solve()
             case _ =>
           }
+        case l: ListType =>
+          right match {
+            case r: ListType =>
+              addConstraint(Constraint(l.listType, r.listType, expr))
+              return solve()
+            case _ =>
+          }
 
         case _ =>
 
