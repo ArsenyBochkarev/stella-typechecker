@@ -55,6 +55,13 @@ object Solver {
               return solve()
             case _ =>
           }
+        case l: TupleType =>
+          right match
+            case r: TupleType =>
+              l.elementsTypes.zip(r.elementsTypes).map(
+                (t1, t2) => { addConstraint(Constraint(t1, t2, expr)); (t1, t2) }
+              )
+              return solve()
 
         case _ =>
 

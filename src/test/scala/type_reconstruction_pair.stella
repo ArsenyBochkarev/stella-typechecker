@@ -1,0 +1,10 @@
+language core;
+extend with #type-reconstruction, #pairs;
+
+fn test(n : auto) -> auto {
+    return {succ(n), {succ(succ(n)), n}}
+}
+
+fn main(m : auto) -> auto {
+  return test(m).2
+}

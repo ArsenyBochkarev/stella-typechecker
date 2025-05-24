@@ -359,6 +359,17 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ------------------------------------------ T-Tuple
       //   Г |- {t_1, ..., t_n} : {T_1, ..., T_n}
 
+        if TypeChecker.isTypeReconstructionEnabled then
+          val leftTy = visitExpr(tupleCtx.exprs.get(0), null)
+          val rightTy = visitExpr(tupleCtx.exprs.get(1), null)
+
+          val resTy = TypeVarWrapper.createTypeVar()
+          if !TypeChecker.validate(resTy, expectedType, tupleCtx.getText) then return null
+          else
+            if !TypeChecker.validate(resTy, TupleType(List(leftTy, rightTy)), tupleCtx.getText) then return null
+            else
+              return resTy
+
         expectedType match {
           case tupleType: TupleType =>
             val resType = TupleType(
@@ -382,7 +393,23 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // -------------------------------- T-Proj
       //         Г |- t.j : T_j
 
-        visitExpr(dotTupleCtx.expr_, null) match {
+        val exprTy = visitExpr(dotTupleCtx.expr_, null)
+        if TypeChecker.isTypeReconstructionEnabled then
+          // Only pairs are required, so...
+          val leftTy = TypeVarWrapper.createTypeVar()
+          val rightTy = TypeVarWrapper.createTypeVar()
+          val index = dotTupleCtx.index.getText.toInt
+          val particularType = if index == 1 then leftTy else rightTy
+
+          val pairTy = TupleType(List(leftTy, rightTy))
+          // Inner type should be pair
+          if !TypeChecker.validate(exprTy, pairTy, dotTupleCtx.expr_.getText) then return null
+          else
+            if !TypeChecker.validate(particularType, expectedType, dotTupleCtx.getText) then return null
+            else
+              return particularType
+
+        exprTy match {
           case tupleType: TupleType =>
             val index = dotTupleCtx.index.getText.toInt - 1
             if index > tupleType.elementsTypes.size || index == 0 then
