@@ -39,6 +39,16 @@ object Solver {
               return solve()
             case _ =>
           }
+        // if S = S_1 + S_2 and T = T_1 + T_2
+        case l: SumType =>
+          right match {
+            case r: SumType =>
+              addConstraint(Constraint(l.typePair._1, r.typePair._1, expr))
+              addConstraint(Constraint(l.typePair._2, r.typePair._2, expr))
+              return solve()
+            case _ =>
+          }
+
         case _ =>
 
       // if T == X and X not in FV(S)

@@ -46,6 +46,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         }
       }
     if TypeChecker.isTypeReconstructionEnabled then
+      println(Solver.constraints.mkString(", "))
       Solver.solve() match {
         case res: UNIFICATION_ERROR_FAILED =>
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(res.expr, res.expectedType, res.actualType))
@@ -59,9 +60,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
   private def inspectExtensions(ctx: StellaParser.ProgramContext): Unit = {
     ctx.extensions.asScala.foreach {
       case extInstance: StellaParser.AnExtensionContext =>
-        extInstance.ExtensionName.getText match
+        extInstance.extensionNames.forEach ( ext => ext.getText match
           case "#type-reconstruction" => TypeChecker.isTypeReconstructionEnabled = true
           case _ =>
+        )
       case _ =>
     }
   }
@@ -463,6 +465,12 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ------------------------------ T-Inl
       //    Г |- inl t_1 as T_1 + T_2 : T_1 + T_2
 
+        if TypeChecker.isTypeReconstructionEnabled then
+          val leftType = visitExpr(inlCtx.expr_, null)
+          if leftType == null then return null
+          else
+            return SumType(leftType, TypeVarWrapper.createTypeVar())
+
         expectedType match {
           case sumType: SumType =>
             if visitExpr(inlCtx.expr_, sumType.typePair._1) == null then null
@@ -481,11 +489,18 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             null
         }
 
-      //        Г |- t_2 : T_2
-      // ------------------------------ T-inr
+      case inrCtx: StellaParser.InrContext =>
+
+      //               Г |- t_2 : T_2
+      // ------------------------------------------- T-inr
       //    Г |- inr t_2 as T_1 + T_2 : T_1 + T_2
 
-      case inrCtx: StellaParser.InrContext =>
+        if TypeChecker.isTypeReconstructionEnabled then
+          val rightType = visitExpr(inrCtx.expr_, null)
+          if rightType == null then return null
+          else
+            return SumType(TypeVarWrapper.createTypeVar(), rightType)
+
         expectedType match {
           case sumType: SumType =>
             if visitExpr(inrCtx.expr_, sumType.typePair._2) == null then null
@@ -503,14 +518,85 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               ERROR_UNEXPECTED_INJECTION(inrCtx.expr().getText, actualType.toString))
             null
         }
+
       case semicolonCtx: StellaParser.TerminatingSemicolonContext =>
         visitExpr(semicolonCtx.expr_, expectedType)
+
       case caseCtx: StellaParser.MatchContext => // This used in both sum and variant types
         if caseCtx.cases.asScala.toList.isEmpty then
           ErrorManager.registerError(ERROR_ILLEGAL_EMPTY_MATCHING(caseCtx.expr().getText))
           return null
         val exprType = visitExpr(caseCtx.expr_, null)
         exprType match {
+          case tyVar: TypeVar =>
+            // We don't do variants here so...
+            val inlType = TypeVarWrapper.createTypeVar()
+            val inrType = TypeVarWrapper.createTypeVar()
+            Solver.addConstraint(Constraint(expectedType, inlType, expr.getText))
+            Solver.addConstraint(Constraint(inlType, inrType, expr.getText))
+
+            var gotInl = false
+            var gotInr = false
+            var shouldNull = false
+            var patternTypes = List.empty[Type]
+            // Check all pattern types are same as expected type
+            for (it <- caseCtx.cases.asScala.toList)
+              val patternType = it.pattern_ match {
+                case pat: StellaParser.PatternInlContext =>
+                  // If pattern is var, get its name and push to typeContext
+                  gotInl = true
+                  val name = pat.pattern_ match {
+                    case varPattern: StellaParser.PatternVarContext =>
+                      varPattern.name.getText
+                    case _ => null
+                  }
+                  if name == null then visitExpr(it.expr_, expectedType)
+                  else
+                    val tc = TypeChecker.funcStack.top
+                    tc.addVariable(Variable(name, inlType))
+                    TypeChecker.funcStack.push(tc)
+                    val res = visitExpr(it.expr_, expectedType)
+                    TypeChecker.funcStack.pop
+                    res
+                case pat: StellaParser.PatternInrContext =>
+                  // If pattern is var, get its name and push to typeContext
+                  gotInr = true
+                  val name = pat.pattern_ match {
+                    case varPattern: StellaParser.PatternVarContext =>
+                      varPattern.name.getText
+                    case _ => null
+                  }
+                  if name == null then visitExpr(it.expr_, expectedType)
+                  else
+                    val tc = TypeChecker.funcStack.top
+                    tc.addVariable(Variable(name, inrType))
+                    TypeChecker.funcStack.push(tc)
+                    val res = visitExpr(it.expr_, expectedType)
+                    TypeChecker.funcStack.pop
+                    res
+                case _ =>
+                  ErrorManager.registerError(ERROR_UNEXPECTED_PATTERN_FOR_TYPE(
+                    it.pattern_.getText, exprType.toString))
+                  null
+              }
+              if patternType == null then shouldNull = true
+              else
+                patternTypes = patternTypes :+ patternType
+            if !(gotInr && gotInl) then
+              ErrorManager.registerError(ERROR_NONEXHAUSTIVE_MATCH_PATTERNS(caseCtx.expr().getText))
+              null
+            else
+              if shouldNull then null
+              else
+                patternTypes.find(p =>
+                  !TypeChecker.validate(p, expectedType, caseCtx.getText)) match {
+                  case Some(p) =>
+                    ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr.getText, p.toString, expectedType.toString))
+                    null
+                  case _ =>
+                    patternTypes.head
+                }
+
           case sumType: SumType =>
 
           //    Г |- t_1 : T_1 + T_2    Г, x : T_1 |- t_2 : C    Г, x : T_2 |- t_3 : C
