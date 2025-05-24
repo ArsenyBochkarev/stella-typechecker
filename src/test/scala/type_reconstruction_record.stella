@@ -1,0 +1,10 @@
+language core;
+extend with #type-reconstruction, #records;
+
+fn iterate(n : Nat) -> { current : Nat, next : Nat } {
+  return { current = n, next = succ(n) }
+}
+
+fn main(n : Nat) -> auto {
+  return iterate(0).next
+}

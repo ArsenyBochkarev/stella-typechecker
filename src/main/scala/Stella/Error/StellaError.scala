@@ -7,8 +7,8 @@ enum StellaError(errStr: String = "Unknown error"):
   case ERROR_UNDEFINED_VARIABLE(varName: String) extends StellaError(s"Undefined variable: ${varName}")
   case ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr: String, exprType: String, expectedType: String) extends StellaError(
     s"Expected type ${expectedType} for expression ${expr}, got: ${exprType}")
-  case ERROR_NOT_A_FUNCTION(expr: String, expectedType: String) extends StellaError(
-    s"Expected function type ${expectedType} for ${expr}")
+  case ERROR_NOT_A_FUNCTION(expr: String, exprType: String) extends StellaError(
+    s"Expected function type for ${expr}, got: $exprType")
   case ERROR_NOT_A_TUPLE(expr: String) extends StellaError(s"${expr} expected to be a tuple")
   case ERROR_NOT_A_RECORD(expr: String, exprType: String, expectedType: String) extends StellaError(
     s"Expected record type $expectedType for $expr, got: $exprType")

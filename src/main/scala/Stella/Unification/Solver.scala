@@ -4,10 +4,11 @@ import Stella.Unification.UnificationResult.{UNIFICATION_ERROR_FAILED, UNIFICATI
 import Stella.Types.*
 
 object Solver {
-  var constraints: Set[Constraint] = Set[Constraint]()
-  def addConstraint(c: Constraint) = constraints = constraints + c
+  var constraints: List[Constraint] = List[Constraint]()
+  def addConstraint(c: Constraint) = constraints = c +: constraints
 
   def solve(): UnificationResult = {
+    println(Solver.constraints.mkString(", "))
     // if C == emptySet then []
     if constraints.isEmpty then
       UNIFICATION_OK
@@ -26,7 +27,7 @@ object Solver {
         // if X == T and X not in FV(T)
         case l: TypeVar =>
           if !isFV(l, right) then
-            constraints = constraints.toList.map(c => { c.replace(l, right) }).toSet
+            constraints = constraints.toList.map(c => { c.replace(l, right) })
             return solve()
           else
             return UNIFICATION_ERROR_FAILED(expr, right.toString, l.toString)
@@ -62,10 +63,18 @@ object Solver {
                 (t1, t2) => { addConstraint(Constraint(t1, t2, expr)); (t1, t2) }
               )
               return solve()
-
+            case _ =>
+        case l: RecordType =>
+          right match
+            case r: RecordType =>
+              val leftTypes = l.labelsMap.map((_, t) => t)
+              val rightTypes = r.labelsMap.map((_, t) => t)
+              leftTypes.zip(rightTypes).map((t1, t2) => { addConstraint(Constraint(t2, t1, expr)); (t2, t1) })
+              return solve()
+            case _ =>
         case _ =>
 
-      // if T == X and X not in FV(S)
+      // if S == X and X not in FV(S)
       right match
         case r: TypeVar =>
           if !isFV(r, left) then

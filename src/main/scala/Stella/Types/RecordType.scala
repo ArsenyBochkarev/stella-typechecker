@@ -38,4 +38,7 @@ class RecordType(recordStructure: List[(String, Type)]) extends Type {
     s"{${elements.mkString(", ")}}"
   }
   override def hashCode: Int = labelsMap.hashCode()
+
+  override def replace(left: Type, right: Type): Type =
+    RecordType(labelsMap.map((label, ty) => { (label, ty.replace(left, right)) }))
 }
