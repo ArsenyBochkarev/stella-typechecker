@@ -1252,7 +1252,6 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               null
         }
 
-
       case throwCtx: StellaParser.ThrowContext =>
 
         //    Г |- t_1 : T_exn
@@ -1260,7 +1259,9 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         //   Г |- throw t_1 : T
 
         if expectedType == null then
-          // TODO: ambiguous-type-as-bottom extension here
+          if TypeChecker.isTypeReconstructionEnabled then
+            val freshTy = TypeVarWrapper.createTypeVar()
+            return freshTy
           ErrorManager.registerError(ERROR_AMBIGUOUS_THROW_TYPE(throwCtx.expr_.getText))
           null
         else
