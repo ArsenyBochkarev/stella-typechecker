@@ -14,6 +14,7 @@ import scala.collection.mutable
 object TypeChecker {
   var funcStack: mutable.Stack[VarContext] = new mutable.Stack[VarContext]()
   var isTypeReconstructionEnabled = false
+  var exceptionType: Type = null
 
   def validate(actualType: Type, expectedType: Type, expression: String): Boolean =
     if isTypeReconstructionEnabled then

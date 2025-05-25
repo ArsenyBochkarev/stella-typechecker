@@ -36,13 +36,15 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if visitDeclFun(funDecl) == null then
               break()
             else println(s"Function ${funDecl.name.getText} processed")
+          case excDecl: StellaParser.DeclExceptionTypeContext =>
+            visitDeclExceptionType(excDecl)
           case genericFunDecl: StellaParser.DeclFunGenericContext =>
             if genericFunDecl.name.getText == "main" then mainFound = true
             if visitDeclFunGeneric(genericFunDecl) == null then
               break()
             else println(s"Function ${genericFunDecl.name.getText} processed")
           case _ =>
-            println("Ignored non-function declaration")
+            println("Ignored non-function/non-exception declaration")
         }
       }
     if ErrorManager.errorQueue.isEmpty && TypeChecker.isTypeReconstructionEnabled then
@@ -65,6 +67,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         )
       case _ =>
     }
+  }
+
+  override def visitDeclExceptionType(ctx: StellaParser.DeclExceptionTypeContext): Unit = {
+    TypeChecker.exceptionType = TypeChecker.ctxToType(ctx.exceptionType)
   }
 
   override def visitDeclFunGeneric(ctx: StellaParser.DeclFunGenericContext): Any = {
@@ -1245,6 +1251,65 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               )
               null
         }
+
+
+      case throwCtx: StellaParser.ThrowContext =>
+
+        //    Г |- t_1 : T_exn
+        // ---------------------- T-Raise
+        //   Г |- throw t_1 : T
+
+        if expectedType == null then
+          // TODO: ambiguous-type-as-bottom extension here
+          ErrorManager.registerError(ERROR_AMBIGUOUS_THROW_TYPE(throwCtx.expr_.getText))
+          null
+        else
+          if TypeChecker.exceptionType == null then
+            ErrorManager.registerError(ERROR_EXCEPTION_TYPE_NOT_DECLARED())
+            null
+          else
+            val innerExceptionType = visitExpr(throwCtx.expr_, TypeChecker.exceptionType)
+            if innerExceptionType == null then null
+            else
+              expectedType
+
+      case tryWithCtx: StellaParser.TryWithContext =>
+
+        //    Г |- t_1 : T   Г |- t_2 : T
+        // ---------------------------------- T-Try
+        //     Г |- try t_1 with t_2 : T
+
+        if TypeChecker.exceptionType == null then
+          ErrorManager.registerError(ERROR_EXCEPTION_TYPE_NOT_DECLARED())
+          null
+        else
+          val tryType = visitExpr(tryWithCtx.tryExpr, expectedType)
+          if tryType == null then null
+          else
+            if visitExpr(tryWithCtx.fallbackExpr, tryType) == null then null
+            else
+              tryType
+
+      case tryCatchCtx: StellaParser.TryCatchContext =>
+
+      //    Г |- t_1 : T   Г, x : T_exn |- t_2 : T
+      // -------------------------------------------- T-Try
+      //       Г |- try t_1 catch x => t_2 : T
+
+        if TypeChecker.exceptionType == null then
+          ErrorManager.registerError(ERROR_EXCEPTION_TYPE_NOT_DECLARED())
+          null
+        else
+          val tryType = visitExpr(tryCatchCtx.tryExpr, expectedType)
+          if tryType == null then null
+          else
+            val scope = TypeChecker.funcStack.top
+            scope.addVariable(Variable(tryCatchCtx.pat.getText, TypeChecker.exceptionType))
+            TypeChecker.funcStack.push(scope)
+            if visitExpr(tryCatchCtx.fallbackExpr, tryType) == null then null
+            else
+              tryType
+
       case _ =>
         null
     }
