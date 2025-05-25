@@ -65,6 +65,8 @@ object TypeChecker {
           typeForallCtx.types.asScala.toList.map( generic => { GenericType(generic.getText) } )
         )
       case typeAutoCtx: StellaParser.TypeAutoContext => TypeVarWrapper.createTypeVar()
+      case refTypeCtx: StellaParser.TypeRefContext =>
+        ReferenceType(ctxToType(refTypeCtx.type_))
       case _ =>
         println("Unexpected type!"); null // In fact, this one should be unsupported
     }

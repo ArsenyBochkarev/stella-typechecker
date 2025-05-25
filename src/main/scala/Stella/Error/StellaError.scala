@@ -66,4 +66,10 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Expected $expectedNumber arguments for type instantiation of $expr, got $actualNumber")
   case ERROR_UNDEFINED_TYPE_VARIABLE(variable: String) extends StellaError(
     s"Undefined type variable $variable")
+  case ERROR_AMBIGUOUS_REFERENCE_TYPE(expr: String) extends StellaError(
+    s"Unable to determine memory type for $expr")
+  case ERROR_UNEXPECTED_MEMORY_ADDRESS(expr: String, expectedType: String) extends StellaError(
+    s"Unexpected reference \"$expr\" for type $expectedType")
+  case ERROR_NOT_A_REFERENCE(expr: String) extends StellaError(
+    s"Expected reference type for $expr")
 end StellaError

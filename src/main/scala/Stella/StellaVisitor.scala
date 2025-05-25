@@ -204,20 +204,21 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                   case otherTy: Type =>
                     ErrorManager.registerError(ERROR_NOT_A_FUNCTION(appCtx.fun.getText, otherTy.toString()))
                     return null
-                  case _ => return null
+                  case null => return null
                 }
             }
-        }
-
-        val argType = TypeChecker.funcStack.top.varTypes.get(appCtx.args.get(0).getText) match {
-          case Some(t) => t
-          case _ =>
-            visitExpr(appCtx.args.get(0), null)
         }
 
         val funcType: FunctionType = tmpTy match
           case fTy: FunctionType => fTy
           case _ => return null
+
+        val argType = TypeChecker.funcStack.top.varTypes.get(appCtx.args.get(0).getText) match {
+          case Some(t) => t
+          case _ =>
+            visitExpr(appCtx.args.get(0), funcType.argType)
+        }
+
         if TypeChecker.isTypeReconstructionEnabled then
 
           //    Г |- t_1 : T_1 | C_1   Г |- t_2 : T_2 | C_2   X -- fresh TypeVar
@@ -237,8 +238,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.argType.toString(), argType.toString()))
           return null
-        if TypeChecker.validate(funcType.returnType, expectedType, appCtx.getText) then
-          funcType.returnType
+        if TypeChecker.validate(funcType.returnType, expectedType, appCtx.getText) then funcType.returnType
         else
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(expr = appCtx.args.get(0).getText,
             funcType.returnType.toString(), expectedType.toString()))
@@ -1033,6 +1033,95 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
               case null => return null
             }
             ErrorManager.registerError(ERROR_UNEXPECTED_VARIANT(expectedType.toString, actualType.toString))
+            null
+        }
+
+      // References
+      case refCtx: StellaParser.RefContext =>
+
+      //        Г |- t_1 : T_1
+      // ---------------------------- T-Ref
+      //    Г |- ref t_1 : Ref T_1
+
+        val innerExpectedType = expectedType match {
+          case refType: ReferenceType => refType.innerType
+          case _ => null
+        }
+        val expectedRefType = if innerExpectedType == null then null else ReferenceType(innerExpectedType)
+        val innerExprType = visitExpr(refCtx.expr_, innerExpectedType)
+        if innerExprType == null then null
+        else
+          if !TypeChecker.validate(ReferenceType(innerExprType), expectedRefType, refCtx.getText) then null
+          else
+            ReferenceType(innerExprType)
+
+      case derefCtx: StellaParser.DerefContext =>
+
+      //      Г |- t_1 : Ref T_1
+      // ---------------------------- T-Deref
+      //    Г |- !t_1 : T_1
+
+        val expectedRefType = if expectedType == null then expectedType
+        else
+          ReferenceType(expectedType)
+        visitExpr(derefCtx.expr_, expectedRefType) match {
+          case refType: ReferenceType =>
+            if TypeChecker.validate(refType.innerType, expectedType, derefCtx.expr_.getText) then refType.innerType
+            else
+              null
+          case null => null
+          // Ignoring BotType: decided to raise error (see in TG chat)
+          case _ =>
+            expectedRefType match {
+              case t: Any =>
+              case null => return null
+            }
+            ErrorManager.registerError(ERROR_NOT_A_REFERENCE(derefCtx.expr_.getText))
+            null
+        }
+
+      case assignCtx: StellaParser.AssignContext =>
+
+      //    Г |- t_1 : Ref T_1   Г |- t_2 : T_1
+      // ----------------------------------------- T-Assign
+      //           Г |- t_1 := t_2 : Unit
+
+        expectedType match {
+          case UnitType =>
+            visitExpr(assignCtx.lhs, null) match {
+              case lhsType: ReferenceType =>
+                val rhsType = visitExpr(assignCtx.rhs, null)
+                if rhsType == null then null
+                else
+                  if TypeChecker.validate(lhsType.innerType, rhsType, assignCtx.rhs.getText) then UnitType
+                  else
+                    null
+              case null => null
+              case _ =>
+                ErrorManager.registerError(ERROR_NOT_A_REFERENCE(assignCtx.lhs.getText))
+                null
+            }
+          case null => null
+          case _ => null
+        }
+
+      // Constant memory
+      case constMemCtx: StellaParser.ConstMemoryContext =>
+
+      // No rule for const memory, so...
+      //
+      // -------------- T-ConstMem
+      //    <n> : &T
+      // As far as I understand, all we can do here is to take expectedType
+
+        expectedType match {
+          case refType: ReferenceType => refType
+          case null =>
+            ErrorManager.registerError(ERROR_AMBIGUOUS_REFERENCE_TYPE(expr.getText))
+            null
+          case _ =>
+            ErrorManager.registerError(ERROR_UNEXPECTED_MEMORY_ADDRESS(
+              constMemCtx.toString, expectedType.toString))
             null
         }
 
