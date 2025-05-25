@@ -52,7 +52,7 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         case res: UNIFICATION_ERROR_FAILED =>
           ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(res.expr, res.expectedType, res.actualType))
         case res: UNIFICATION_ERROR_INFINITE_TYPE =>
-          ErrorManager.registerError(ERROR_OCCURS_CHECK_INFINITE_TYPE(res.expr))
+          ErrorManager.registerError(ERROR_OCCURS_CHECK_INFINITE_TYPE(res.expr, res.left, res.right))
         case _ =>
       }
     ErrorManager.outputErrors()
@@ -217,6 +217,11 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         val funcType: FunctionType = tmpTy match
           case fTy: FunctionType => fTy
+          case typeVar: TypeVar =>
+            val fTy = FunctionType(TypeVarWrapper.createTypeVar(), TypeVarWrapper.createTypeVar())
+            if !TypeChecker.validate(typeVar, fTy, appCtx.getText) then null
+            else
+              fTy
           case _ => return null
 
         val argType = TypeChecker.funcStack.top.varTypes.get(appCtx.args.get(0).getText) match {

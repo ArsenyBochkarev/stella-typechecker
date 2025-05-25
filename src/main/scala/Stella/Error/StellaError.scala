@@ -58,8 +58,8 @@ enum StellaError(errStr: String = "Unknown error"):
     s"Duplicate record field \"$field\" in a record type $rec")
   case ERROR_DUPLICATE_VARIANT_TYPE_FIELDS(field: String, variant: String) extends StellaError(
     s"Duplicate variant field \"$field\" in a field type $variant")
-  case ERROR_OCCURS_CHECK_INFINITE_TYPE(expr: String) extends StellaError(
-    s"Infinite type occured in expression $expr")
+  case ERROR_OCCURS_CHECK_INFINITE_TYPE(expr: String, left: String, right: String) extends StellaError(
+    s"Infinite type occurred when unifying {$left = $right} constraint in expression $expr")
   case ERROR_NOT_A_GENERIC_FUNCTION(expr: String, expectedType: String) extends StellaError(
     s"Expected generic function type $expectedType for $expr")
   case ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS(expr: String, expectedNumber: Int, actualNumber: Int) extends StellaError(

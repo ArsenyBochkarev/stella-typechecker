@@ -1,6 +1,6 @@
 package Stella.Unification
 
-import Stella.Unification.UnificationResult.{UNIFICATION_ERROR_FAILED, UNIFICATION_OK}
+import Stella.Unification.UnificationResult.{UNIFICATION_ERROR_FAILED, UNIFICATION_ERROR_INFINITE_TYPE, UNIFICATION_OK}
 import Stella.Types.*
 
 object Solver {
@@ -30,7 +30,7 @@ object Solver {
             constraints = constraints.toList.map(c => { c.replace(l, right) })
             return solve()
           else
-            return UNIFICATION_ERROR_FAILED(expr, right.toString, l.toString)
+            return UNIFICATION_ERROR_INFINITE_TYPE(expr, l.toString,  right.toString)
         // if S = S_1 -> S_2 and T = T_1 -> T_2
         case l: FunctionType =>
           right match {
@@ -86,7 +86,7 @@ object Solver {
             constraints = constraints.toList.map(c => { c.replace(r, left) })
             solve()
           else
-            UNIFICATION_ERROR_FAILED(expr, left.toString, r.toString)
+            UNIFICATION_ERROR_INFINITE_TYPE(expr, left.toString, r.toString)
         case _ => UNIFICATION_ERROR_FAILED(expr, right.toString, left.toString)
   }
 
