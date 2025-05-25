@@ -1,3 +1,5 @@
+// The error should be "UNEXPECTED_RECORD_FIELDS"
+
 language core;
 extend with #type-reconstruction, #records;
 

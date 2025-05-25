@@ -85,7 +85,7 @@ object Solver {
         case _ => UNIFICATION_ERROR_FAILED(expr, right.toString, left.toString)
   }
 
-  def isFV(left: Type, right: Type): Boolean = {
+  private def isFV(left: Type, right: Type): Boolean = {
     right match {
       case r: TypeVar =>
         left == right
@@ -96,7 +96,9 @@ object Solver {
       case r: SumType =>
         isFV(left, r.typePair._1) || isFV(left, r.typePair._2)
       case r: TupleType =>
-        r.elementsTypes.exists(elem => { isFV(left, elem) })
+        r.elementsTypes.exists(elem => isFV(left, elem) )
+      case r: RecordType =>
+        r.labelsMap.exists((_, elem) => isFV(left, elem))
 
       case _ =>
         false
