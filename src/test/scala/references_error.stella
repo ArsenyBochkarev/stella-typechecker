@@ -1,5 +1,5 @@
 language core;
-extend with #references, #type-ascriptions;
+extend with #references;
 
 fn main(n : Nat) -> Nat {
 	return *((fn (_ : Nat) {

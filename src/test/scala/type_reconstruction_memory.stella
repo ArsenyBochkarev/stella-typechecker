@@ -1,0 +1,8 @@
+language core;
+extend with #references, #type-reconstruction;
+
+fn foo(n : auto) -> auto { return *n }
+
+fn main(n : auto) -> auto {
+	return foo(<0x01>)
+}

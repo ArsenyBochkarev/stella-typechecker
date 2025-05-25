@@ -72,6 +72,11 @@ object Solver {
               leftTypes.zip(rightTypes).map((t1, t2) => { addConstraint(Constraint(t2, t1, expr)); (t2, t1) })
               return solve()
             case _ =>
+        case l: ReferenceType =>
+          right match
+            case r: ReferenceType =>
+              addConstraint(Constraint(l.innerType, r.innerType, expr))
+              return solve()
         case _ =>
 
       // if S == X and X not in FV(S)

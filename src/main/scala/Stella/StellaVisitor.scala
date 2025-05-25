@@ -319,6 +319,10 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
         val expr1Type = visitExpr(seqCtx.expr1, UnitType)
         expr1Type match {
           case UnitType => visitExpr(seqCtx.expr2, expectedType)
+          case typeVar: TypeVar =>
+            if !TypeChecker.validate(typeVar, UnitType, seqCtx.expr1.getText) then null
+            else
+              visitExpr(seqCtx.expr2, expectedType)
           case null => null
           case _ =>
             ErrorManager.registerError(ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION(seqCtx.expr1.getText, expr1Type.toString(), UnitType.toString()))
@@ -1043,6 +1047,16 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
       // ---------------------------- T-Ref
       //    Г |- ref t_1 : Ref T_1
 
+        if TypeChecker.isTypeReconstructionEnabled then
+          val innerTy = visitExpr(refCtx.expr_, null)
+
+          val resTy = TypeVarWrapper.createTypeVar()
+          if !TypeChecker.validate(resTy, expectedType, refCtx.getText) then return null
+          else
+            if !TypeChecker.validate(resTy, ReferenceType(innerTy), refCtx.getText) then return null
+            else
+              return resTy
+
         val innerExpectedType = expectedType match {
           case refType: ReferenceType => refType.innerType
           case _ => null
@@ -1069,8 +1083,16 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
             if TypeChecker.validate(refType.innerType, expectedType, derefCtx.expr_.getText) then refType.innerType
             else
               null
+          case typeVar: TypeVar =>
+            val freshTy = TypeVarWrapper.createTypeVar()
+
+            if !TypeChecker.validate(ReferenceType(freshTy), typeVar, derefCtx.expr_.getText) then null
+            else
+              // Perhaps this action was already performed, but just to be sure:
+              if !TypeChecker.validate(typeVar, expectedRefType, derefCtx.expr_.getText) then null
+              else
+                freshTy
           case null => null
-          // Ignoring BotType: decided to raise error (see in TG chat)
           case _ =>
             expectedRefType match {
               case t: Any =>
@@ -1101,7 +1123,29 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
                 ErrorManager.registerError(ERROR_NOT_A_REFERENCE(assignCtx.lhs.getText))
                 null
             }
-          case null => null
+          case typeVar: TypeVar =>
+            if !TypeChecker.validate(typeVar, UnitType, assignCtx.getText) then null
+            else
+              visitExpr(assignCtx.lhs, null) match {
+                case lhsType: ReferenceType =>
+                  val rhsType = visitExpr(assignCtx.rhs, null)
+                  if rhsType == null then null
+                  else
+                    if TypeChecker.validate(lhsType.innerType, rhsType, assignCtx.rhs.getText) then typeVar
+                    else
+                      null
+                case lhsTypeVar: TypeVar =>
+                  val rhsType = visitExpr(assignCtx.rhs, null)
+                  if rhsType == null then null
+                  else
+                    if TypeChecker.validate(lhsTypeVar, ReferenceType(rhsType), assignCtx.rhs.getText) then typeVar
+                    else
+                      null
+                case null => null
+                case _ =>
+                  ErrorManager.registerError(ERROR_NOT_A_REFERENCE(assignCtx.lhs.getText))
+                  null
+              }
           case _ => null
         }
 
@@ -1116,7 +1160,12 @@ class StellaVisitor extends StellaParserBaseVisitor[Any] {
 
         expectedType match {
           case refType: ReferenceType => refType
+          case typeVar: TypeVar => typeVar // or ReferenceType(typeVar)?.. :thinking:
           case null =>
+            if TypeChecker.isTypeReconstructionEnabled then
+              // Try to reconstruct it later
+              val freshTy = TypeVarWrapper.createTypeVar()
+              return freshTy
             ErrorManager.registerError(ERROR_AMBIGUOUS_REFERENCE_TYPE(expr.getText))
             null
           case _ =>

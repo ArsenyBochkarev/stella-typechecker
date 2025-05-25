@@ -1,0 +1,19 @@
+language core;
+extend with #type-reconstruction, #unit-type, #references, #let-bindings, #sequencing;
+
+fn inc_ref(ref1 : auto) -> auto {
+    return
+        ref1 := succ(*ref1)
+}
+
+fn inc3(ref2 : auto) -> auto {
+    return
+        inc_ref(ref2);
+        inc_ref(ref2);
+        inc_ref(ref2);
+        *ref2
+}
+
+fn main(n : auto) -> auto {
+    return let ref3 = new(n) in inc3(ref3)
+}
